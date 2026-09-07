@@ -5,7 +5,7 @@ import axios from "axios";
 // l'injecter dans chaque requete. "withCredentials" suffit a faire envoyer
 // le cookie automatiquement par le navigateur a chaque appel.
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL || "https://unishare-backend-83eh.onrender.com/api",
+    baseURL: import.meta.env.VITE_API_URL || "https://unishare-backend-83eh.onrender.com",
     withCredentials: true,
 });
 
