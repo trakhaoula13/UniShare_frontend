@@ -5,8 +5,8 @@ import axios from "axios";
 // l'injecter dans chaque requete. "withCredentials" suffit a faire envoyer
 // le cookie automatiquement par le navigateur a chaque appel.
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
-  withCredentials: true,
+    baseURL: import.meta.env.VITE_API_URL || "https://universityshare.netlify.app/api",
+    withCredentials: true,
 });
 
 // Pages accessibles sans etre connecte : un 401 dessus est normal (on n'est
@@ -14,18 +14,18 @@ const api = axios.create({
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const status = error.response?.status;
-    const isAuthCheck = error.config?.url?.includes("/auth/me");
-    const onPublicPage = PUBLIC_PATHS.some((p) => window.location.pathname.startsWith(p));
+    (response) => response,
+    (error) => {
+        const status = error.response ? error.response.status : undefined;
+        const isAuthCheck = Boolean(error.config && error.config.url && error.config.url.includes("/auth/me"));
+        const onPublicPage = PUBLIC_PATHS.some((p) => window.location.pathname.startsWith(p));
 
-    if (status === 401 && !isAuthCheck && !onPublicPage) {
-      localStorage.removeItem("user");
-      window.location.href = "/login";
+        if (status === 401 && !isAuthCheck && !onPublicPage) {
+            localStorage.removeItem("user");
+            window.location.href = "/login";
+        }
+        return Promise.reject(error);
     }
-    return Promise.reject(error);
-  }
 );
 
 export default api;
