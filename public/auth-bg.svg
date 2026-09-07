@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1400" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="glow" cx="30%" cy="20%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="dots" width="46" height="46" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.4" fill="#ffffff" opacity="0.10"/>
+    </pattern>
+  </defs>
+
+  <rect width="1200" height="1400" fill="url(#dots)"/>
+  <rect width="1200" height="1400" fill="url(#glow)"/>
+
+  <!-- lignes de connexion (reseau de connaissances) -->
+  <g stroke="#ffffff" stroke-opacity="0.14" stroke-width="1.5">
+    <line x1="120" y1="1120" x2="380" y2="980"/>
+    <line x1="380" y1="980" x2="640" y2="1080"/>
+    <line x1="640" y1="1080" x2="920" y2="960"/>
+    <line x1="380" y1="980" x2="420" y2="760"/>
+    <line x1="920" y1="960" x2="1080" y2="1160"/>
+  </g>
+  <g fill="#ffffff" fill-opacity="0.22">
+    <circle cx="120" cy="1120" r="5"/>
+    <circle cx="380" cy="980" r="6"/>
+    <circle cx="640" cy="1080" r="5"/>
+    <circle cx="920" cy="960" r="6"/>
+    <circle cx="420" cy="760" r="4"/>
+    <circle cx="1080" cy="1160" r="5"/>
+  </g>
+
+  <!-- silhouette de batiment universitaire (colonnes + fronton) -->
+  <g fill="#ffffff" fill-opacity="0.09">
+    <polygon points="150,760 480,760 315,620"/>
+    <rect x="160" y="760" width="26" height="180"/>
+    <rect x="220" y="760" width="26" height="180"/>
+    <rect x="280" y="760" width="26" height="180"/>
+    <rect x="340" y="760" width="26" height="180"/>
+    <rect x="400" y="760" width="26" height="180"/>
+    <rect x="460" y="760" width="26" height="180"/>
+    <rect x="140" y="940" width="360" height="24"/>
+  </g>
+
+  <!-- pile de livres -->
+  <g fill="#ffffff" fill-opacity="0.14">
+    <rect x="700" y="1230" width="230" height="26" rx="4"/>
+    <rect x="715" y="1200" width="200" height="26" rx="4"/>
+    <rect x="695" y="1170" width="240" height="26" rx="4"/>
+  </g>
+
+  <!-- livre ouvert -->
+  <g fill="#ffffff" fill-opacity="0.16">
+    <path d="M760 1150 C 800 1130, 840 1130, 840 1150 L 840 1170 C 800 1150, 800 1150, 760 1170 Z"/>
+    <path d="M920 1150 C 880 1130, 840 1130, 840 1150 L 840 1170 C 880 1150, 880 1150, 920 1170 Z"/>
+  </g>
+
+  <!-- toque de diplome -->
+  <g fill="#ffffff" fill-opacity="0.85">
+    <polygon points="870,300 1020,360 870,420 720,360"/>
+    <rect x="845" y="360" width="50" height="16" rx="3"/>
+    <path d="M960 372 L 995 385 L 995 430 C 995 445 940 445 940 430 L 940 400 Z" fill-opacity="0.85"/>
+    <line x1="1010" y1="362" x2="1010" y2="420" stroke="#ffffff" stroke-opacity="0.7" stroke-width="3"/>
+    <circle cx="1010" cy="426" r="5" fill="#ffffff" fill-opacity="0.7"/>
+  </g>
+
+  <!-- etoiles eparses -->
+  <g fill="#ffffff" fill-opacity="0.5">
+    <circle cx="200" cy="220" r="2.5"/>
+    <circle cx="980" cy="180" r="2"/>
+    <circle cx="1100" cy="520" r="2.5"/>
+    <circle cx="90" cy="560" r="2"/>
+    <circle cx="560" cy="140" r="2"/>
+  </g>
+</svg>
