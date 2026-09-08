@@ -1,9 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import Layout from "../components/Layout";
 import PageWrapper from "../components/PageWrapper";
 import Modal from "../components/Modal";
+import Pagination from "../components/Pagination";
 import useResource from "../hooks/useResource";
 import useUndoDelete from "../hooks/useUndoDelete";
 import api from "../services/api";
@@ -12,6 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import Icon from "../components/Icon";
 
 const emptyForm = { title: "", code: "", description: "", color: "#6c63ff", progress: 0 };
+const ITEMS_PER_PAGE = 9; // 3 colonnes x 3 lignes
 
 const Courses = () => {
   const { items: courses, setItems: setCourses, create, update } = useResource("/courses");
@@ -24,6 +26,7 @@ const Courses = () => {
   const [editingProgressId, setEditingProgressId] = useState(null);
   const [progressValue, setProgressValue] = useState(0);
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
   const navigate = useNavigate();
 
   const deleteWithUndo = useUndoDelete({
@@ -65,6 +68,16 @@ const Courses = () => {
     return c.title.toLowerCase().includes(q) || (c.code || "").toLowerCase().includes(q);
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredCourses.length / ITEMS_PER_PAGE));
+  const paginatedCourses = filteredCourses.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+  // Revenir a la page 1 quand la recherche change ou quand la page
+  // courante n'existe plus (ex: suppression du dernier element d'une page).
+  useEffect(() => { setPage(1); }, [search]);
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
+
   return (
     <Layout title="Mes cours">
       <PageWrapper>
@@ -88,7 +101,7 @@ const Courses = () => {
 
         <div className="row g-3">
           <AnimatePresence>
-            {filteredCourses.map((course, i) => (
+            {paginatedCourses.map((course, i) => (
               <motion.div
                 key={course._id}
                 className="col-md-6 col-xl-4"
@@ -179,6 +192,8 @@ const Courses = () => {
           )}
           {courses.length === 0 && <p className="text-muted">Aucun cours pour le moment. Ajoutez-en un !</p>}
         </div>
+
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
         <Modal show={showModal} onClose={() => setShowModal(false)} title={editingId ? "Modifier le cours" : "Nouveau cours"}>
           <form onSubmit={handleSubmit}>

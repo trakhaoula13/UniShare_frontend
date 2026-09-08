@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Layout from "../components/Layout";
 import PageWrapper from "../components/PageWrapper";
 import Modal from "../components/Modal";
+import Pagination from "../components/Pagination";
 import useResource from "../hooks/useResource";
 import useUndoDelete from "../hooks/useUndoDelete";
 import api from "../services/api";
@@ -12,6 +13,7 @@ import { useAuth } from "../context/AuthContext";
 import Icon from "../components/Icon";
 
 const emptyForm = { title: "", content: "", course: "", fileName: "", fileType: "", fileUrl: "" };
+const ITEMS_PER_PAGE = 9;
 
 const Notes = () => {
   const { items: notes, setItems: setNotes, create, update } = useResource("/notes");
@@ -25,6 +27,7 @@ const Notes = () => {
   const [uploading, setUploading] = useState(false);
   const [fileError, setFileError] = useState("");
   const [viewingNote, setViewingNote] = useState(null);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     api.get("/courses").then(({ data }) => setCourses(data));
@@ -70,6 +73,13 @@ const Notes = () => {
     showToast(note.sharedWithViewers ? "Partage retire" : "Note partagee", { type: "info" });
   };
 
+  const totalPages = Math.max(1, Math.ceil(notes.length / ITEMS_PER_PAGE));
+  const paginatedNotes = notes.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [totalPages, page]);
+
   return (
     <Layout title="Mes notes">
       <PageWrapper>
@@ -88,7 +98,7 @@ const Notes = () => {
 
         <div className="row g-3">
           <AnimatePresence>
-            {notes.map((note, i) => (
+            {paginatedNotes.map((note, i) => (
               <motion.div
                 key={note._id}
                 className="col-md-6 col-xl-4"
@@ -131,6 +141,8 @@ const Notes = () => {
           </AnimatePresence>
           {notes.length === 0 && <p className="text-muted">Aucune note pour le moment.</p>}
         </div>
+
+        <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
 
         <Modal show={showModal} onClose={() => setShowModal(false)} title={editingId ? "Modifier la note" : "Nouvelle note"}>
           <form onSubmit={handleSubmit}>

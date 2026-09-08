@@ -56,8 +56,26 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Recharge les infos utilisateur depuis le serveur (role, sponsor, etc.)
+  // sans forcer une reconnexion. Utile quand l'etat cote serveur a pu
+  // changer (ex: rattachement a un sponsor via un code d'acces) alors que
+  // le token en localStorage reste valide.
+  const refreshUser = async () => {
+    try {
+      const { data } = await api.get("/auth/me");
+      setUser(data);
+      localStorage.setItem("user", JSON.stringify(data));
+      return data;
+    } catch (error) {
+      // On ne deconnecte pas ici : si /auth/me echoue vraiment (token
+      // expire/invalide), l'intercepteur 401 dans services/api.js prendra
+      // deja le relais pour rediriger vers /login.
+      return null;
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, setUser, login, register, logout, loading }}>
+    <AuthContext.Provider value={{ user, setUser, login, register, logout, refreshUser, loading }}>
       {children}
     </AuthContext.Provider>
   );

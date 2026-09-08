@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import PasswordInput from "../components/PasswordInput";
+import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 import api from "../services/api";
 import Icon from "../components/Icon";
 
@@ -54,6 +55,7 @@ const ResetPasswordConfirm = () => {
           <div className="mb-3">
             <label className="form-label">Nouveau mot de passe</label>
             <PasswordInput value={newPassword} onChange={(e) => setNewPassword(e.target.value)} name="newPassword" minLength={6} />
+            <PasswordStrengthMeter password={newPassword} />
           </div>
 
           <div className="mb-4">

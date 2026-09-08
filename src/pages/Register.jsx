@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import PasswordInput from "../components/PasswordInput";
+import PasswordStrengthMeter from "../components/PasswordStrengthMeter";
 import api from "../services/api";
 import { sendVerificationEmail } from "../services/emailService";
 import Icon from "../components/Icon";
@@ -128,6 +129,7 @@ const Register = () => {
             <div className="mb-4">
               <label className="form-label">Mot de passe</label>
               <PasswordInput value={form.password} onChange={handleChange} name="password" minLength={6} />
+              <PasswordStrengthMeter password={form.password} />
             </div>
 
             <button className="btn btn-primary w-100 btn-animated" disabled={loading}>
