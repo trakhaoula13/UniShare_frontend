@@ -1,16 +1,21 @@
 import axios from "axios";
 
-// L'authentification passe desormais par un cookie httpOnly pose par le
-// backend : plus besoin de lire/ecrire un token, ni d'intercepteur pour
-// l'injecter dans chaque requete. "withCredentials" suffit a faire envoyer
-// le cookie automatiquement par le navigateur a chaque appel.
+// Le token JWT est stocke en localStorage et attache manuellement a chaque
+// requete via le header Authorization (plus fiable que les cookies
+// cross-site, qui sont de plus en plus bloques par les navigateurs quand
+// frontend et backend sont sur des domaines differents).
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL || "https://unishare-backend-83eh.onrender.com",
-    withCredentials: true,
 });
 
-// Pages accessibles sans etre connecte : un 401 dessus est normal (on n'est
-// justement pas encore authentifie) et ne doit jamais forcer une redirection.
+api.interceptors.request.use((config) => {
+    const token = localStorage.getItem("token");
+    if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
 const PUBLIC_PATHS = ["/login", "/register", "/forgot-password", "/reset-password"];
 
 api.interceptors.response.use(
@@ -22,6 +27,7 @@ api.interceptors.response.use(
 
         if (status === 401 && !isAuthCheck && !onPublicPage) {
             localStorage.removeItem("user");
+            localStorage.removeItem("token");
             window.location.href = "/login";
         }
         return Promise.reject(error);

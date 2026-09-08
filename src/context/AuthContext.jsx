@@ -4,9 +4,6 @@ import api from "../services/api";
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  // "user" en localStorage sert uniquement de cache d'affichage instantane
-  // (evite un ecran blanc le temps du premier appel reseau). La veritable
-  // session est le cookie httpOnly gere par le backend -- verifiee ci-dessous.
   const [user, setUser] = useState(() => {
     const stored = localStorage.getItem("user");
     return stored ? JSON.parse(stored) : null;
@@ -14,6 +11,11 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setLoading(false);
+      return;
+    }
     api
       .get("/auth/me")
       .then(({ data }) => {
@@ -22,6 +24,7 @@ export const AuthProvider = ({ children }) => {
       })
       .catch(() => {
         localStorage.removeItem("user");
+        localStorage.removeItem("token");
         setUser(null);
       })
       .finally(() => setLoading(false));
@@ -29,6 +32,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const { data } = await api.post("/auth/login", { email, password });
+    localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data));
     setUser(data);
     return data;
@@ -36,6 +40,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (payload) => {
     const { data } = await api.post("/auth/register", payload);
+    localStorage.setItem("token", data.token);
     localStorage.setItem("user", JSON.stringify(data));
     setUser(data);
     return data;
@@ -46,6 +51,7 @@ export const AuthProvider = ({ children }) => {
       await api.post("/auth/logout");
     } finally {
       localStorage.removeItem("user");
+      localStorage.removeItem("token");
       setUser(null);
     }
   };
