@@ -1,9 +1,10 @@
 import React from "react";
 import Icon from "./Icon";
 
-// Composant de pagination generique, a utiliser sur les listes filtrees
-// cote client (Courses, Notes...). Coherent avec le style Bootstrap deja
-// utilise dans le reste de l'app.
+// Pagination stylee via des classes custom (voir la section
+// "---------- PAGINATION ----------" a ajouter dans le CSS global),
+// coherente avec le reste du design (cartes arrondies, ombre douce,
+// degrade primary).
 const Pagination = ({ page, totalPages, onPageChange }) => {
   if (totalPages <= 1) return null;
 
@@ -13,11 +14,11 @@ const Pagination = ({ page, totalPages, onPageChange }) => {
   for (let i = start; i <= end; i++) pages.push(i);
 
   return (
-    <nav aria-label="Pagination" className="d-flex justify-content-center mt-4">
-      <ul className="pagination">
-        <li className={`page-item ${page === 1 ? "disabled" : ""}`}>
+    <nav aria-label="Pagination" className="app-pagination-wrapper">
+      <ul className="app-pagination">
+        <li>
           <button
-            className="page-link d-flex align-items-center"
+            className="app-pagination-btn app-pagination-arrow"
             onClick={() => onPageChange(page - 1)}
             disabled={page === 1}
             aria-label="Page precedente"
@@ -28,31 +29,33 @@ const Pagination = ({ page, totalPages, onPageChange }) => {
 
         {start > 1 && (
           <>
-            <li className="page-item">
-              <button className="page-link" onClick={() => onPageChange(1)}>1</button>
-            </li>
-            {start > 2 && <li className="page-item disabled"><span className="page-link">…</span></li>}
+            <li><button className="app-pagination-btn" onClick={() => onPageChange(1)}>1</button></li>
+            {start > 2 && <li className="app-pagination-ellipsis">…</li>}
           </>
         )}
 
         {pages.map((p) => (
-          <li key={p} className={`page-item ${p === page ? "active" : ""}`}>
-            <button className="page-link" onClick={() => onPageChange(p)}>{p}</button>
+          <li key={p}>
+            <button
+              className={`app-pagination-btn ${p === page ? "app-pagination-btn-active" : ""}`}
+              onClick={() => onPageChange(p)}
+              aria-current={p === page ? "page" : undefined}
+            >
+              {p}
+            </button>
           </li>
         ))}
 
         {end < totalPages && (
           <>
-            {end < totalPages - 1 && <li className="page-item disabled"><span className="page-link">…</span></li>}
-            <li className="page-item">
-              <button className="page-link" onClick={() => onPageChange(totalPages)}>{totalPages}</button>
-            </li>
+            {end < totalPages - 1 && <li className="app-pagination-ellipsis">…</li>}
+            <li><button className="app-pagination-btn" onClick={() => onPageChange(totalPages)}>{totalPages}</button></li>
           </>
         )}
 
-        <li className={`page-item ${page === totalPages ? "disabled" : ""}`}>
+        <li>
           <button
-            className="page-link d-flex align-items-center"
+            className="app-pagination-btn app-pagination-arrow"
             onClick={() => onPageChange(page + 1)}
             disabled={page === totalPages}
             aria-label="Page suivante"

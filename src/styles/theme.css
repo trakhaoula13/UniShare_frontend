@@ -1536,3 +1536,75 @@ body {
         display: none;
     }
 }
+
+
+/* ---------- PAGINATION ---------- */
+
+
+/* A coller dans ton fichier CSS global, a cote des autres sections
+   (ex: juste apres la section TABLE). */
+
+.app-pagination-wrapper {
+    display: flex;
+    justify-content: center;
+    margin-top: 1.75rem;
+}
+
+.app-pagination {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    list-style: none;
+    margin: 0;
+    padding: 0.35rem;
+    background: var(--surface);
+    border-radius: 30px;
+    box-shadow: var(--shadow-soft);
+}
+
+.app-pagination-btn {
+    min-width: 34px;
+    height: 34px;
+    padding: 0 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.88rem;
+    font-weight: 600;
+    border-radius: 50%;
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+}
+
+.app-pagination-btn:hover:not(:disabled):not(.app-pagination-btn-active) {
+    background: #f0f1f7;
+    color: var(--text-dark);
+}
+
+[data-theme="dark"] .app-pagination-btn:hover:not(:disabled):not(.app-pagination-btn-active) {
+    background: #23234a;
+}
+
+.app-pagination-btn-active {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(108, 99, 255, 0.35);
+}
+
+.app-pagination-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+.app-pagination-arrow {
+    color: var(--text-dark);
+}
+
+.app-pagination-ellipsis {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    padding: 0 0.15rem;
+    user-select: none;
+}
