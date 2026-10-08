@@ -5,14 +5,20 @@ import Layout from "../components/Layout";
 import PageWrapper from "../components/PageWrapper";
 import Modal from "../components/Modal";
 import api from "../services/api";
-import { uploadFile } from "../utils/fileUtils";
 import { useToast } from "../context/ToastContext";
 import { useConfirm } from "../context/ConfirmContext";
 import { useAuth } from "../context/AuthContext";
 import useUndoDelete from "../hooks/useUndoDelete";
 import Icon from "../components/Icon";
 
-const emptyForm = { title: "", content: "", fileName: "", fileType: "", fileUrl: "" };
+const emptyForm = { title: "", content: "" };
+
+// Nombre total de fichiers d'une note (nouveau format + ancien PDF unique).
+const countFiles = (note) => {
+  const list = note.files || [];
+  const legacy = note.fileUrl && !list.some((f) => f.fileUrl === note.fileUrl) ? 1 : 0;
+  return list.length + legacy;
+};
 
 const CourseDetail = () => {
   const { id } = useParams();
@@ -28,11 +34,8 @@ const CourseDetail = () => {
   const [editingId, setEditingId] = useState(null);
   const [editCourse, setEditCourse] = useState(false);
   const [courseForm, setCourseForm] = useState(null);
-  const [fileError, setFileError] = useState("");
-  const [uploading, setUploading] = useState(false);
   const [editingProgress, setEditingProgress] = useState(false);
   const [progressValue, setProgressValue] = useState(0);
-  const [viewingNote, setViewingNote] = useState(null);
   const [loadError, setLoadError] = useState("");
 
   const load = async () => {
@@ -59,38 +62,28 @@ const CourseDetail = () => {
     getLabel: (note) => note.title,
   });
 
-  const openCreate = () => { setForm({ ...emptyForm }); setEditingId(null); setFileError(""); setShowModal(true); };
-  const openEdit = (note) => { setForm(note); setEditingId(note._id); setFileError(""); setShowModal(true); };
-
-  const handleFileChange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    if (file.type !== "application/pdf") { setFileError("Seuls les fichiers PDF sont acceptes."); return; }
-    if (file.size > 8 * 1024 * 1024) { setFileError("Le fichier ne doit pas depasser 8 Mo."); return; }
-    setFileError("");
-    setUploading(true);
-    try {
-      const { fileUrl, fileName, fileType } = await uploadFile(file);
-      setForm((f) => ({ ...f, fileUrl, fileName, fileType }));
-    } catch {
-      setFileError("Echec de l'envoi du fichier.");
-    } finally {
-      setUploading(false);
-    }
+  const openCreate = () => { setForm({ ...emptyForm }); setEditingId(null); setShowModal(true); };
+  const openEdit = (note) => {
+    setForm({ title: note.title, content: note.content || "" });
+    setEditingId(note._id);
+    setShowModal(true);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const payload = { ...form, course: id };
     if (editingId) {
-      const { data } = await api.put(`/notes/${editingId}`, payload);
-      setNotes((prev) => prev.map((n) => (n._id === editingId ? data : n)));
+      const { data } = await api.put(`/notes/${editingId}`, { ...form, course: id });
+      // L'API renvoie le cours sous forme d'id : on garde la note complete.
+      setNotes((prev) => prev.map((n) => (n._id === editingId ? { ...n, ...data, course: n.course } : n)));
+      setShowModal(false);
+      showToast("Note mise a jour", { type: "success" });
     } else {
-      const { data } = await api.post("/notes", payload);
-      setNotes((prev) => [data, ...prev]);
+      const { data } = await api.post("/notes", { ...form, course: id });
+      setShowModal(false);
+      showToast("Page creee : ajoutez vos fichiers et notes", { type: "success" });
+      // On ouvre directement la nouvelle page pour y ajouter fichiers et notes.
+      navigate(`/notes/${data._id}`);
     }
-    setShowModal(false);
-    showToast(editingId ? "Note mise a jour" : "Note ajoutee", { type: "success" });
   };
 
   const handleCourseSave = async (e) => {
@@ -236,106 +229,78 @@ const CourseDetail = () => {
         </div>
 
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <h5 className="fw-bold mb-0"><Icon name="journal-text" className="me-2" />Notes & documents PDF</h5>
+          <h5 className="fw-bold mb-0"><Icon name="journal-text" className="me-2" />Notes & documents</h5>
           {!isReadOnly && (
             <button className="btn btn-primary btn-animated" onClick={openCreate}>
-              <Icon name="plus-lg" className="me-1" />Ajouter
+              <Icon name="plus-lg" className="me-1" />Nouvelle page
             </button>
           )}
         </div>
 
         <div className="row g-3">
           <AnimatePresence>
-            {notes.map((note, i) => (
-              <motion.div
-                key={note._id}
-                className="col-md-6 col-xl-4"
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -16 }}
-                transition={{ delay: i * 0.04 }}
-              >
-                <div className="note-card h-100 note-card-clickable" onClick={() => setViewingNote(note)}>
-                  <div className="d-flex justify-content-between align-items-start">
-                    <h6 className="fw-bold note-title-clamp">{note.title}</h6>
-                    {!isReadOnly && (
-                      <div className="dropdown" onClick={(e) => e.stopPropagation()}>
-                        <button className="btn-icon" data-bs-toggle="dropdown" aria-label="Options de la note"><Icon name="three-dots-vertical" /></button>
-                        <ul className="dropdown-menu dropdown-menu-end">
-                          <li><button className="dropdown-item" onClick={() => openEdit(note)}><Icon name="pencil" className="me-2" />Modifier</button></li>
-                          <li><button className="dropdown-item text-danger" onClick={() => deleteNoteWithUndo(note)}><Icon name="trash" className="me-2" />Supprimer</button></li>
-                        </ul>
+            {notes.map((note, i) => {
+              const fileCount = countFiles(note);
+              const entryCount = (note.entries || []).length;
+              return (
+                <motion.div
+                  key={note._id}
+                  className="col-md-6 col-xl-4"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -16 }}
+                  transition={{ delay: i * 0.04 }}
+                >
+                  <div className="note-card h-100 note-card-clickable" onClick={() => navigate(`/notes/${note._id}`)}>
+                    <div className="d-flex justify-content-between align-items-start">
+                      <h6 className="fw-bold note-title-clamp">{note.title}</h6>
+                      {!isReadOnly && (
+                        <div className="dropdown" onClick={(e) => e.stopPropagation()}>
+                          <button className="btn-icon" data-bs-toggle="dropdown" aria-label="Options de la note"><Icon name="three-dots-vertical" /></button>
+                          <ul className="dropdown-menu dropdown-menu-end">
+                            <li><button className="dropdown-item" onClick={() => openEdit(note)}><Icon name="pencil" className="me-2" />Modifier</button></li>
+                            <li><button className="dropdown-item text-danger" onClick={() => deleteNoteWithUndo(note)}><Icon name="trash" className="me-2" />Supprimer</button></li>
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+
+                    {note.content && <p className="text-muted small note-content">{note.content}</p>}
+
+                    {(fileCount > 0 || entryCount > 0) && (
+                      <div className="pdf-chip">
+                        <Icon name="file-earmark-pdf-fill" />
+                        <span className="text-truncate">
+                          {fileCount} fichier{fileCount > 1 ? "s" : ""} · {entryCount} note{entryCount > 1 ? "s" : ""}
+                        </span>
+                        <Icon name="arrow-up-right-circle" className="ms-auto" />
                       </div>
                     )}
                   </div>
-
-                  {note.fileUrl ? (
-                    <a className="pdf-chip" href={note.fileUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                      <Icon name="file-earmark-pdf-fill" />
-                      <span className="text-truncate">{note.fileName}</span>
-                      <Icon name="box-arrow-up-right" className="ms-auto" />
-                    </a>
-                  ) : (
-                    <p className="text-muted small note-content mb-0">{note.content}</p>
-                  )}
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
-          {notes.length === 0 && <p className="text-muted">Aucune note ni document pour ce cours.</p>}
+          {notes.length === 0 && <p className="text-muted">Aucune page pour ce cours.</p>}
         </div>
 
-        <Modal show={showModal} onClose={() => setShowModal(false)} title={editingId ? "Modifier" : "Ajouter une note ou un PDF"}>
+        <Modal show={showModal} onClose={() => setShowModal(false)} title={editingId ? "Modifier la page" : "Nouvelle page"}>
           <form onSubmit={handleSubmit}>
             <div className="mb-3">
               <label className="form-label">Titre</label>
               <input className="form-control" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
             </div>
             <div className="mb-3">
-              <label className="form-label">Contenu (note texte)</label>
-              <textarea className="form-control" rows="4" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} placeholder="Laisser vide si vous joignez un PDF"></textarea>
+              <label className="form-label">Description (optionnel)</label>
+              <textarea className="form-control" rows="4" value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })}></textarea>
             </div>
-            <div className="mb-3">
-              <label className="form-label">Document PDF (optionnel)</label>
-              <input type="file" accept="application/pdf" className="form-control" onChange={handleFileChange} disabled={uploading} />
-              {uploading && <small className="text-muted">Envoi en cours...</small>}
-              {fileError && <small className="text-danger d-block">{fileError}</small>}
-              {form.fileName && !fileError && (
-                <div className="pdf-chip mt-2">
-                  <Icon name="file-earmark-pdf-fill" />
-                  <span className="text-truncate">{form.fileName}</span>
-                  <button type="button" className="btn-icon ms-auto" onClick={() => setForm({ ...form, fileName: "", fileType: "", fileUrl: "" })} aria-label="Retirer le fichier">
-                    <Icon name="x-lg" />
-                  </button>
-                </div>
-              )}
-            </div>
-            <button className="btn btn-primary w-100 btn-animated" disabled={uploading}>{editingId ? "Enregistrer" : "Ajouter"}</button>
+            {!editingId && (
+              <p className="text-muted small">
+                Vous pourrez ajouter plusieurs fichiers (PDF, Word, images...) et plusieurs notes dans la page qui s'ouvre apres la creation.
+              </p>
+            )}
+            <button className="btn btn-primary w-100 btn-animated">{editingId ? "Enregistrer" : "Creer la page"}</button>
           </form>
-        </Modal>
-
-        <Modal show={!!viewingNote} onClose={() => setViewingNote(null)} title="Details de la note">
-          {viewingNote && (
-            <div>
-              <h5 className="fw-bold mb-2">{viewingNote.title}</h5>
-              {viewingNote.fileUrl && (
-                <a className="pdf-chip mt-2 mb-2" href={viewingNote.fileUrl} target="_blank" rel="noopener noreferrer">
-                  <Icon name="file-earmark-pdf-fill" />
-                  <span className="text-truncate">{viewingNote.fileName}</span>
-                  <Icon name="box-arrow-up-right" className="ms-auto" />
-                </a>
-              )}
-              <p className="note-view-content mt-2">{viewingNote.content || "Aucun contenu."}</p>
-              <div className="d-flex gap-2 mt-4">
-                {!isReadOnly && (
-                  <button className="btn btn-outline-primary flex-grow-1" onClick={() => { setViewingNote(null); openEdit(viewingNote); }}>
-                    <Icon name="pencil" className="me-1" />Modifier
-                  </button>
-                )}
-                <button className="btn btn-outline-secondary flex-grow-1" onClick={() => setViewingNote(null)}>Fermer</button>
-              </div>
-            </div>
-          )}
         </Modal>
       </PageWrapper>
     </Layout>

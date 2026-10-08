@@ -11,6 +11,7 @@ import Courses from "./pages/Courses";
 import CourseDetail from "./pages/CourseDetail";
 import Assignments from "./pages/Assignments";
 import Notes from "./pages/Notes";
+import NoteDetail from "./pages/NoteDetail";
 import Research from "./pages/Research";
 import Schedule from "./pages/Schedule";
 import Todos from "./pages/Todos";
@@ -35,6 +36,7 @@ function App() {
         <Route path="/courses/:id" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
         <Route path="/assignments" element={<ProtectedRoute><Assignments /></ProtectedRoute>} />
         <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
+        <Route path="/notes/:id" element={<ProtectedRoute><NoteDetail /></ProtectedRoute>} />
         <Route path="/research" element={<ProtectedRoute denyRoles={["viewonly"]}><Research /></ProtectedRoute>} />
         <Route path="/schedule" element={<ProtectedRoute><Schedule /></ProtectedRoute>} />
         <Route path="/todos" element={<ProtectedRoute denyRoles={["viewonly"]}><Todos /></ProtectedRoute>} />

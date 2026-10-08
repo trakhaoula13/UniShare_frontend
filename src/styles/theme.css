@@ -1608,3 +1608,270 @@ body {
     padding: 0 0.15rem;
     user-select: none;
 }
+
+
+/* ---------- NOTE DETAIL (page plein ecran) ---------- */
+
+
+/* A coller dans ton CSS global, a cote des autres sections. */
+
+.note-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.25rem;
+}
+
+.note-detail-main {
+    min-height: 140px;
+    padding: 2rem 2.25rem;
+}
+
+.note-detail-title {
+    word-break: break-word;
+    letter-spacing: -0.01em;
+}
+
+.note-detail-content {
+    font-size: 1.02rem;
+    line-height: 1.75;
+}
+
+
+/* ---------- ZONE D'AJOUT DE FICHIERS ---------- */
+
+.file-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.35rem;
+    text-align: center;
+    padding: 1.5rem 1rem;
+    border: 2px dashed var(--border-subtle);
+    border-radius: 14px;
+    color: var(--primary);
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.file-dropzone:hover,
+.file-dropzone:focus-visible,
+.file-dropzone-active {
+    border-color: var(--primary);
+    background: rgba(108, 99, 255, 0.07);
+    outline: none;
+}
+
+
+/* ---------- LISTE DES FICHIERS ---------- */
+
+.file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.file-item {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 12px;
+    background: #f7f7fb;
+}
+
+[data-theme="dark"] .file-item {
+    background: #1f1f40;
+}
+
+.file-item-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.file-item-name {
+    color: var(--text-dark);
+    font-weight: 600;
+    font-size: 0.88rem;
+    text-decoration: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-item-name:hover {
+    color: var(--primary);
+}
+
+.file-thumb {
+    width: 42px;
+    height: 42px;
+    object-fit: cover;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.file-ext-badge {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    color: #fff;
+    flex-shrink: 0;
+    background: #6b7280;
+}
+
+.file-kind-pdf {
+    background: #ef4444;
+}
+
+.file-kind-word {
+    background: #2563eb;
+}
+
+.file-kind-excel {
+    background: #16a34a;
+}
+
+.file-kind-ppt {
+    background: #f97316;
+}
+
+.file-kind-archive {
+    background: #a16207;
+}
+
+.file-kind-video {
+    background: #9333ea;
+}
+
+.file-kind-audio {
+    background: #0ea5e9;
+}
+
+.file-kind-text {
+    background: #64748b;
+}
+
+
+/* ---------- SOUS-NOTES (plusieurs notes dans une page) ---------- */
+
+.entry-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.entry-card {
+    padding: 1rem 1.15rem;
+    border-radius: 14px;
+    background: #f7f7fb;
+    border-left: 3px solid var(--primary);
+}
+
+[data-theme="dark"] .entry-card {
+    background: #1f1f40;
+}
+
+.entry-form {
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.min-w-0 {
+    min-width: 0;
+}
+
+
+/* Le panneau des fichiers reste visible pendant le defilement (PC). */
+
+@media (min-width: 992px) {
+    .note-files-panel {
+        position: sticky;
+        top: 6rem;
+    }
+}
+
+
+/* ---------- ONGLETS DES PAGES D'UN COURS ---------- */
+
+.page-tabs-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--surface);
+    border-radius: 14px;
+    box-shadow: var(--shadow-soft);
+}
+
+.page-tabs-course {
+    font-weight: 800;
+    font-size: 0.85rem;
+    color: var(--primary);
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.page-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    overflow-x: auto;
+    flex: 1;
+    padding-bottom: 2px;
+}
+
+.page-tab {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 600;
+    padding: 0.4rem 0.9rem;
+    border-radius: 20px;
+    white-space: nowrap;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.page-tab:hover:not(.page-tab-active) {
+    background: #f0f1f7;
+    color: var(--text-dark);
+}
+
+[data-theme="dark"] .page-tab:hover:not(.page-tab-active) {
+    background: #23234a;
+}
+
+.page-tab-active {
+    background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(108, 99, 255, 0.3);
+}
+
+.page-tab-add {
+    padding: 0.4rem 0.6rem;
+    color: var(--primary);
+    display: inline-flex;
+    align-items: center;
+}
+
+.page-tab-form {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
