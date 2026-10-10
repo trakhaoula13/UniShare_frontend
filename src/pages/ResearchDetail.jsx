@@ -8,7 +8,7 @@ import { uploadFile } from "../utils/fileUtils";
 import { getExt, getKind, formatSize, formatDate, fixName, resolveFileUrl } from "../utils/fileHelpers";
 import { useToast } from "../context/ToastContext";
 
-const MAX_SIZE = 20 * 1024 * 1024; // 20 Mo par fichier
+const MAX_SIZE = 50 * 1024 * 1024; // 50 Mo par fichier
 const emptyEntry = { title: "", text: "" };
 const categoryLabel = (c) => (c === "thesis" ? "Thèse" : "Projet tutoré / Article");
 
@@ -111,7 +111,7 @@ const ResearchDetail = () => {
 
     for (const file of files) {
       if (file.size > MAX_SIZE) {
-        newErrors.push(`${file.name} : depasse 20 Mo.`);
+        newErrors.push(`${file.name} : depasse 50 Mo.`);
         setUploadingCount((c) => Math.max(0, c - 1));
         continue;
       }
@@ -407,7 +407,7 @@ const ResearchDetail = () => {
               >
                 <Icon name="plus-lg" size={22} />
                 <strong>Ajouter des fichiers</strong>
-                <small className="text-muted">Glissez-deposez ou cliquez · PDF, Word, Excel, images, ZIP... (20 Mo max par fichier)</small>
+                <small className="text-muted">Glissez-deposez ou cliquez · PDF, Word, Excel, images, ZIP... (50 Mo max par fichier)</small>
               </div>
               <input ref={inputRef} type="file" multiple hidden onChange={(e) => handleFiles(e.target.files)} />
               {uploadingCount > 0 && <small className="text-muted d-block mt-2">Envoi en cours ({uploadingCount} restant{uploadingCount > 1 ? "s" : ""})...</small>}
