@@ -8,7 +8,7 @@ import { uploadFile } from "../utils/fileUtils";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 
-const MAX_SIZE = 50 * 1024 * 1024; // 50 Mo par fichier
+const MAX_SIZE = 80 * 1024 * 1024; // 80 Mo par fichier
 
 const getExt = (name = "") => (name.includes(".") ? name.split(".").pop().toLowerCase() : "");
 
@@ -171,7 +171,7 @@ const NoteDetail = () => {
 
     for (const file of files) {
       if (file.size > MAX_SIZE) {
-        newErrors.push(`${file.name} : depasse 50 Mo.`);
+        newErrors.push(`${file.name} : depasse 80 Mo.`);
         setUploadingCount((c) => Math.max(0, c - 1));
         continue;
       }
@@ -542,7 +542,7 @@ const NoteDetail = () => {
                   >
                     <Icon name="plus-lg" size={22} />
                     <strong>Ajouter des fichiers</strong>
-                    <small className="text-muted">Glissez-deposez ou cliquez · PDF, Word, Excel, images, ZIP... (50 Mo max par fichier)</small>
+                    <small className="text-muted">Glissez-deposez ou cliquez · PDF, Word, Excel, images, ZIP... (80 Mo max par fichier)</small>
                   </div>
                   <input ref={inputRef} type="file" multiple hidden onChange={(e) => handleFiles(e.target.files)} />
                   {uploadingCount > 0 && <small className="text-muted d-block mt-2">Envoi en cours ({uploadingCount} restant{uploadingCount > 1 ? "s" : ""})...</small>}
