@@ -32,6 +32,8 @@ const AccessCodes = () => {
   const [mode, setMode] = useState("all"); // "all" = tout ce qui est partage, "custom" = choix precis
   const [selCourses, setSelCourses] = useState([]);
   const [selNotes, setSelNotes] = useState([]);
+  const [includeContent, setIncludeContent] = useState(true); // toutes les notes/fichiers des cours coches
+  const [includeUnshared, setIncludeUnshared] = useState(true); // meme ce qui n'est pas partage
   const [editingCodeId, setEditingCodeId] = useState(null);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -81,6 +83,8 @@ const AccessCodes = () => {
     setMode("all");
     setSelCourses([]);
     setSelNotes([]);
+    setIncludeContent(true);
+    setIncludeUnshared(true);
     setExpiresInDays("");
     setEditingCodeId(null);
     setFormError("");
@@ -91,6 +95,8 @@ const AccessCodes = () => {
     setMode(codeDoc.restricted ? "custom" : "all");
     setSelCourses((codeDoc.courses || []).map((c) => c._id || c));
     setSelNotes((codeDoc.notes || []).map((n) => n._id || n));
+    setIncludeContent(!!codeDoc.includeCourseContent);
+    setIncludeUnshared(!!codeDoc.includeUnshared);
     setFormError("");
     window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
   };
@@ -101,7 +107,13 @@ const AccessCodes = () => {
       setFormError("Cochez au moins un cours ou une note.");
       return;
     }
-    const payload = { restricted: mode === "custom", courseIds: selCourses, noteIds: selNotes };
+    const payload = {
+      restricted: mode === "custom",
+      courseIds: selCourses,
+      noteIds: selNotes,
+      includeCourseContent: includeContent,
+      includeUnshared,
+    };
     setSaving(true);
     try {
       if (editingCodeId) {
@@ -331,28 +343,57 @@ const AccessCodes = () => {
                           <input type="checkbox" className="form-check-input" checked={selCourses.includes(course._id)} onChange={() => toggleId(selCourses, setSelCourses, course._id)} />
                           <span className="scope-dot" style={{ background: course.color }} />
                           <strong>{course.title}</strong>
-                          {!course.sharedWithViewers && <span className="scope-badge">cours non partage</span>}
+                          {!includeUnshared && !course.sharedWithViewers && <span className="scope-badge">cours non partage</span>}
                         </label>
                         {courseNotes.length > 0 && (
                           <div className="scope-notes">
-                            {courseNotes.map((n) => (
-                              <label className="scope-row" key={n._id}>
-                                <input type="checkbox" className="form-check-input" checked={selNotes.includes(n._id)} onChange={() => toggleId(selNotes, setSelNotes, n._id)} />
-                                <span>{n.title}</span>
-                                {!n.sharedWithViewers && <span className="scope-badge">non partagee</span>}
-                              </label>
-                            ))}
-                            <button type="button" className="btn btn-link btn-sm p-0" onClick={() => selectAllNotes(courseNotes)}>
-                              Cocher / decocher toutes les notes
-                            </button>
+                            {courseNotes.map((n) => {
+                              // Deja incluse automatiquement si son cours est coche.
+                              const auto = includeContent && selCourses.includes(course._id);
+                              return (
+                                <label className="scope-row" key={n._id}>
+                                  <input
+                                    type="checkbox"
+                                    className="form-check-input"
+                                    checked={auto || selNotes.includes(n._id)}
+                                    disabled={auto}
+                                    onChange={() => toggleId(selNotes, setSelNotes, n._id)}
+                                  />
+                                  <span>{n.title}</span>
+                                  {auto && <span className="scope-badge scope-badge-on">incluse</span>}
+                                  {!includeUnshared && !n.sharedWithViewers && <span className="scope-badge">non partagee</span>}
+                                </label>
+                              );
+                            })}
+                            {!(includeContent && selCourses.includes(course._id)) && (
+                              <button type="button" className="btn btn-link btn-sm p-0" onClick={() => selectAllNotes(courseNotes)}>
+                                Cocher / decocher toutes les notes
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
                     );
                   })}
-                  <p className="text-muted small mt-2 mb-0">
-                    Rappel : un lecteur ne voit un element que s'il est <strong>partage</strong> (oeil vert) <strong>et</strong> coche ici.
-                  </p>
+                  <div className="scope-options">
+                    <label className="scope-row">
+                      <input type="checkbox" className="form-check-input" checked={includeContent} onChange={(e) => setIncludeContent(e.target.checked)} />
+                      <span>
+                        <strong>Tout le contenu des cours coches</strong>
+                        <small className="text-muted d-block">Toutes leurs notes, avec leurs fichiers et leurs sous-notes, sans avoir a les cocher une par une.</small>
+                      </span>
+                    </label>
+                    <label className="scope-row">
+                      <input type="checkbox" className="form-check-input" checked={includeUnshared} onChange={(e) => setIncludeUnshared(e.target.checked)} />
+                      <span>
+                        <strong>Aussi ce qui n'est pas partage</strong>
+                        <small className="text-muted d-block">
+                          Les elements avec l'oeil barre deviennent visibles pour les lecteurs de ce code (cours, notes, fichiers).
+                          Decochez pour ne montrer que ce qui est partage.
+                        </small>
+                      </span>
+                    </label>
+                  </div>
                 </div>
               )}
 
@@ -392,6 +433,8 @@ const AccessCodes = () => {
                             {(c.courses || []).map((x) => x.title).join(", ") || "aucun cours"}
                             {" · "}
                             {(c.notes || []).length} note{(c.notes || []).length > 1 ? "s" : ""}
+                            {c.includeCourseContent ? " + tout le contenu des cours" : ""}
+                            {c.includeUnshared ? " · y compris non partage" : ""}
                           </span>
                         </>
                       ) : (
