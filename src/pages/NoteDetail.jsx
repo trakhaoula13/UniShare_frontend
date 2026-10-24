@@ -7,6 +7,7 @@ import api from "../services/api";
 import { uploadFile } from "../utils/fileUtils";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
+import { markSeen } from "../utils/newContent";
 
 const MAX_SIZE = 80 * 1024 * 1024; // 80 Mo par fichier
 
@@ -148,6 +149,9 @@ const NoteDetail = () => {
       showToast("Impossible de creer la page", { type: "error" });
     }
   };
+
+  // Une note ouverte (ou modifiee ici) n'est plus "nouvelle".
+  useEffect(() => { if (note) markSeen(note); }, [note]);
 
   /* ---------------- Fichiers ---------------- */
 

@@ -32,7 +32,10 @@ const AccessCodes = () => {
   const [mode, setMode] = useState("all"); // "all" = tout ce qui est partage, "custom" = choix precis
   const [selCourses, setSelCourses] = useState([]);
   const [selNotes, setSelNotes] = useState([]);
-  const [includeContent, setIncludeContent] = useState(true); // toutes les notes/fichiers des cours coches
+  const [selFiles, setSelFiles] = useState([]); // adresses (fileUrl) des fichiers choisis
+  const [selEntries, setSelEntries] = useState([]); // identifiants des notes internes choisies
+  const [collapsed, setCollapsed] = useState([]); // notes dont le detail est replie (tout est deplie par defaut)
+  const [includeContent, setIncludeContent] = useState(false); // toutes les notes/fichiers des cours coches
   const [includeUnshared, setIncludeUnshared] = useState(true); // meme ce qui n'est pas partage
   const [editingCodeId, setEditingCodeId] = useState(null);
   const [formError, setFormError] = useState("");
@@ -83,7 +86,10 @@ const AccessCodes = () => {
     setMode("all");
     setSelCourses([]);
     setSelNotes([]);
-    setIncludeContent(true);
+    setSelFiles([]);
+    setSelEntries([]);
+    setCollapsed([]);
+    setIncludeContent(false);
     setIncludeUnshared(true);
     setExpiresInDays("");
     setEditingCodeId(null);
@@ -95,6 +101,8 @@ const AccessCodes = () => {
     setMode(codeDoc.restricted ? "custom" : "all");
     setSelCourses((codeDoc.courses || []).map((c) => c._id || c));
     setSelNotes((codeDoc.notes || []).map((n) => n._id || n));
+    setSelFiles(codeDoc.files || []);
+    setSelEntries((codeDoc.entries || []).map(String));
     setIncludeContent(!!codeDoc.includeCourseContent);
     setIncludeUnshared(!!codeDoc.includeUnshared);
     setFormError("");
@@ -103,14 +111,16 @@ const AccessCodes = () => {
 
   const submitCode = async () => {
     setFormError("");
-    if (mode === "custom" && selCourses.length === 0 && selNotes.length === 0) {
-      setFormError("Cochez au moins un cours ou une note.");
+    if (mode === "custom" && !selCourses.length && !selNotes.length && !selFiles.length && !selEntries.length) {
+      setFormError("Cochez au moins un cours, une note, un fichier ou une note interne.");
       return;
     }
     const payload = {
       restricted: mode === "custom",
       courseIds: selCourses,
       noteIds: selNotes,
+      fileUrls: selFiles,
+      entryIds: selEntries,
       includeCourseContent: includeContent,
       includeUnshared,
     };
@@ -328,12 +338,18 @@ const AccessCodes = () => {
                 <input type="radio" className="form-check-input" checked={mode === "custom"} onChange={() => setMode("custom")} />
                 <span>
                   <strong>Seulement ce que je choisis</strong>
-                  <small className="text-muted d-block">Les cours et notes cochés ci-dessous. Les devoirs et l'emploi du temps ne sont pas visibles.</small>
+                  <small className="text-muted d-block">Les cours, notes, fichiers et notes internes cochés ci-dessous. Les devoirs et l'emploi du temps ne sont pas visibles.</small>
                 </span>
               </label>
 
               {mode === "custom" && (
                 <div className="scope-picker">
+                  {options.notes.length > 0 && options.notes.every((n) => !Array.isArray(n.files)) && (
+                    <div className="alert alert-warning py-2 small">
+                      Le serveur n'est pas à jour : la liste des fichiers et des notes internes est indisponible.
+                      Remplacez <code>accessCodeController.js</code> sur le backend, puis redéployez.
+                    </div>
+                  )}
                   {options.courses.length === 0 && <p className="text-muted small mb-0">Vous n'avez aucun cours pour le moment.</p>}
                   {options.courses.map((course) => {
                     const courseNotes = notesByCourse[course._id] || [];
@@ -348,21 +364,71 @@ const AccessCodes = () => {
                         {courseNotes.length > 0 && (
                           <div className="scope-notes">
                             {courseNotes.map((n) => {
-                              // Deja incluse automatiquement si son cours est coche.
+                              // Page entiere deja incluse : par son cours (avec "tout le contenu") ou cochee.
                               const auto = includeContent && selCourses.includes(course._id);
+                              const wholeNote = auto || selNotes.includes(n._id);
+                              const itemCount = (n.files || []).length + (n.entries || []).length;
+                              const pickedCount = (n.files || []).filter((f) => selFiles.includes(f.fileUrl)).length
+                                + (n.entries || []).filter((e) => selEntries.includes(String(e._id))).length;
+                              const open = !collapsed.includes(n._id);
                               return (
-                                <label className="scope-row" key={n._id}>
-                                  <input
-                                    type="checkbox"
-                                    className="form-check-input"
-                                    checked={auto || selNotes.includes(n._id)}
-                                    disabled={auto}
-                                    onChange={() => toggleId(selNotes, setSelNotes, n._id)}
-                                  />
-                                  <span>{n.title}</span>
-                                  {auto && <span className="scope-badge scope-badge-on">incluse</span>}
-                                  {!includeUnshared && !n.sharedWithViewers && <span className="scope-badge">non partagee</span>}
-                                </label>
+                                <div key={n._id} className="scope-note">
+                                  <div className="scope-row">
+                                    <label className="scope-row-label">
+                                      <input
+                                        type="checkbox"
+                                        className="form-check-input"
+                                        checked={wholeNote}
+                                        disabled={auto}
+                                        onChange={() => toggleId(selNotes, setSelNotes, n._id)}
+                                      />
+                                      <span>{n.title}</span>
+                                      {auto && <span className="scope-badge scope-badge-on">incluse</span>}
+                                      {!includeUnshared && !n.sharedWithViewers && <span className="scope-badge">non partagee</span>}
+                                      {!wholeNote && pickedCount > 0 && <span className="scope-badge scope-badge-on">{pickedCount} element{pickedCount > 1 ? "s" : ""}</span>}
+                                    </label>
+                                    {itemCount > 0 ? (
+                                      <button type="button" className="scope-toggle" onClick={() => toggleId(collapsed, setCollapsed, n._id)} aria-expanded={open}>
+                                        {open ? "Replier" : `Afficher les ${itemCount} élément${itemCount > 1 ? "s" : ""}`}
+                                      </button>
+                                    ) : (
+                                      <small className="text-muted">Aucun fichier ni note interne</small>
+                                    )}
+                                  </div>
+
+                                  {open && (
+                                    <div className="scope-items">
+                                      {(n.files || []).map((f) => (
+                                        <label className="scope-row" key={f.fileUrl}>
+                                          <input
+                                            type="checkbox"
+                                            className="form-check-input"
+                                            checked={wholeNote || selFiles.includes(f.fileUrl)}
+                                            disabled={wholeNote}
+                                            onChange={() => toggleId(selFiles, setSelFiles, f.fileUrl)}
+                                          />
+                                          <span className="scope-kind">PDF/fichier</span>
+                                          <span className="scope-item-name">{f.fileName}</span>
+                                          {!includeUnshared && !f.sharedWithViewers && <span className="scope-badge">non partage</span>}
+                                        </label>
+                                      ))}
+                                      {(n.entries || []).map((e) => (
+                                        <label className="scope-row" key={e._id}>
+                                          <input
+                                            type="checkbox"
+                                            className="form-check-input"
+                                            checked={wholeNote || selEntries.includes(String(e._id))}
+                                            disabled={wholeNote}
+                                            onChange={() => toggleId(selEntries, setSelEntries, String(e._id))}
+                                          />
+                                          <span className="scope-kind scope-kind-note">Note interne</span>
+                                          <span className="scope-item-name">{e.title || "Sans titre"}</span>
+                                          {!includeUnshared && !e.sharedWithViewers && <span className="scope-badge">non partagee</span>}
+                                        </label>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
                               );
                             })}
                             {!(includeContent && selCourses.includes(course._id)) && (
@@ -433,6 +499,8 @@ const AccessCodes = () => {
                             {(c.courses || []).map((x) => x.title).join(", ") || "aucun cours"}
                             {" · "}
                             {(c.notes || []).length} note{(c.notes || []).length > 1 ? "s" : ""}
+                            {(c.files || []).length > 0 ? ` · ${c.files.length} fichier${c.files.length > 1 ? "s" : ""}` : ""}
+                            {(c.entries || []).length > 0 ? ` · ${c.entries.length} note${c.entries.length > 1 ? "s" : ""} interne${c.entries.length > 1 ? "s" : ""}` : ""}
                             {c.includeCourseContent ? " + tout le contenu des cours" : ""}
                             {c.includeUnshared ? " · y compris non partage" : ""}
                           </span>

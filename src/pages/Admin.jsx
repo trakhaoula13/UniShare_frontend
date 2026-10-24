@@ -55,9 +55,13 @@ const Admin = () => {
   const removeUser = async (targetUser) => {
     const ok = await confirm(`Supprimer definitivement le compte de "${targetUser.name}" ?`);
     if (!ok) return;
-    await api.delete(`/users/${targetUser._id}`);
-    setUsers((prev) => prev.filter((u) => u._id !== targetUser._id));
-    showToast("Utilisateur supprime", { type: "info" });
+    try {
+      await api.delete(`/users/${targetUser._id}`);
+      setUsers((prev) => prev.filter((u) => u._id !== targetUser._id));
+      showToast("Utilisateur supprime", { type: "info" });
+    } catch (err) {
+      showToast(err.response?.data?.message || "Suppression impossible", { type: "danger" });
+    }
   };
 
   const revokeCode = async (codeDoc) => {
@@ -131,9 +135,12 @@ const Admin = () => {
                     <td className="text-muted small">{u.sponsor ? u.sponsor.name : "—"}</td>
                     <td className="text-muted small">{new Date(u.createdAt).toLocaleDateString("fr-FR")}</td>
                     <td>
-                      <button className="btn-icon text-danger" disabled={u._id === currentUser?._id} onClick={() => removeUser(u)} aria-label={`Supprimer ${u.name}`}>
-                        <Icon name="trash" />
-                      </button>
+                      {/* Pas de suppression pour un compte administrateur (le serveur la refuse aussi) */}
+                      {u.role !== "admin" && (
+                        <button className="btn-icon text-danger" onClick={() => removeUser(u)} aria-label={`Supprimer ${u.name}`}>
+                          <Icon name="trash" />
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

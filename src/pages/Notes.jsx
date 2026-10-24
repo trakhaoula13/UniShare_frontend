@@ -11,6 +11,8 @@ import api from "../services/api";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import Icon from "../components/Icon";
+import { hasNewContent, syncSeen } from "../utils/newContent";
+import { CardSkeletons } from "../components/Skeletons";
 
 const emptyForm = { title: "", content: "", course: "" };
 const ITEMS_PER_PAGE = 9;
@@ -23,7 +25,7 @@ const countFiles = (note) => {
 };
 
 const Notes = () => {
-  const { items: notes, setItems: setNotes, create, update } = useResource("/notes");
+  const { items: notes, setItems: setNotes, create, update, loading } = useResource("/notes");
   const { showToast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -33,6 +35,10 @@ const Notes = () => {
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState(null);
   const [page, setPage] = useState(1);
+  const [seen, setSeen] = useState(null);
+
+  // Memorise ce qui a deja ete vu (badge "Nouveau contenu")
+  useEffect(() => { if (notes.length) setSeen(syncSeen(notes)); }, [notes]);
 
   useEffect(() => {
     api.get("/courses").then(({ data }) => setCourses(data));
@@ -119,6 +125,7 @@ const Notes = () => {
                         </div>
                       )}
                     </div>
+                    {hasNewContent(note, seen) && <span className="badge-new me-1 mb-2">Nouveau contenu</span>}
                     {note.course && <span className="badge bg-light text-dark mb-2">{note.course.title}</span>}
                     {note.content && <p className="text-muted small note-content">{note.content}</p>}
                     {fileCount > 0 && (
@@ -133,7 +140,8 @@ const Notes = () => {
               );
             })}
           </AnimatePresence>
-          {notes.length === 0 && <p className="text-muted">Aucune note pour le moment.</p>}
+          {loading && notes.length === 0 && <CardSkeletons count={6} />}
+          {!loading && notes.length === 0 && <p className="text-muted">Aucune note pour le moment.</p>}
         </div>
 
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />

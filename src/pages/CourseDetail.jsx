@@ -10,6 +10,7 @@ import { useConfirm } from "../context/ConfirmContext";
 import { useAuth } from "../context/AuthContext";
 import useUndoDelete from "../hooks/useUndoDelete";
 import Icon from "../components/Icon";
+import { hasNewContent, syncSeen } from "../utils/newContent";
 
 const emptyForm = { title: "", content: "" };
 
@@ -37,6 +38,7 @@ const CourseDetail = () => {
   const [editingProgress, setEditingProgress] = useState(false);
   const [progressValue, setProgressValue] = useState(0);
   const [loadError, setLoadError] = useState("");
+  const [seen, setSeen] = useState(null);
 
   const load = async () => {
     setLoadError("");
@@ -49,6 +51,7 @@ const CourseDetail = () => {
       setCourseForm(cRes.data);
       setProgressValue(cRes.data.progress);
       setNotes(nRes.data.filter((n) => n.course?._id === id || n.course === id));
+      setSeen(syncSeen(nRes.data));
     } catch (err) {
       setLoadError(err.response?.data?.message || "Impossible de charger ce cours.");
     }
@@ -265,6 +268,7 @@ const CourseDetail = () => {
                       )}
                     </div>
 
+                    {hasNewContent(note, seen) && <span className="badge-new mb-2">Nouveau contenu</span>}
                     {note.content && <p className="text-muted small note-content">{note.content}</p>}
 
                     {(fileCount > 0 || entryCount > 0) && (

@@ -1,44 +1,117 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../services/api";
 
-// Hook CRUD generique : evite de reecrire le meme load/create/update/remove
-// dans chaque page (Courses, Assignments, Notes, Research, Todos, Schedule
-// utilisaient tous un code quasi identique).
-export default function useResource(endpoint) {
-  const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(true);
+// Liste d'une ressource (cours, notes...) avec affichage INSTANTANE :
+//  - la derniere liste connue est relue depuis le navigateur et affichee tout de suite,
+//  - puis rafraichie en arriere-plan (le serveur peut etre lent a repondre).
+// Renvoie { items, setItems, create, update, loading, reload }.
 
-  const load = useCallback(async () => {
-    setLoading(true);
+const cacheKey = (endpoint) => {
+    let user = {};
     try {
-      const { data } = await api.get(endpoint);
-      setItems(data);
-    } finally {
-      setLoading(false);
+        user = JSON.parse(localStorage.getItem("user")) || {};
+    } catch {
+        /* ignore */
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [endpoint]);
+    const sponsor = (user.sponsor && user.sponsor._id) || user.sponsor || "";
+    return `res:${user._id || "anon"}:${sponsor}:${endpoint}`;
+};
 
-  useEffect(() => {
-    load();
-  }, [load]);
+const readCache = (key) => {
+    try {
+        const raw = localStorage.getItem(key);
+        return raw ? JSON.parse(raw) : null;
+    } catch {
+        return null;
+    }
+};
 
-  const create = async (payload) => {
-    const { data } = await api.post(endpoint, payload);
-    setItems((prev) => [data, ...prev]);
-    return data;
-  };
+const writeCache = (key, data) => {
+    try {
+        const text = JSON.stringify(data);
+        if (text.length < 1000000) localStorage.setItem(key, text); // on evite les listes trop lourdes
+    } catch {
+        /* ignore */
+    }
+};
 
-  const update = async (id, payload) => {
-    const { data } = await api.put(`${endpoint}/${id}`, payload);
-    setItems((prev) => prev.map((item) => (item._id === id ? data : item)));
-    return data;
-  };
+// Fusionne la reponse du serveur dans un element, sans ecraser un objet deja
+// complet (ex: le cours d'une note) par un simple identifiant.
+const mergeKeepPopulated = (oldItem, newItem) => {
+    const result = {...oldItem };
+    for (const k of Object.keys(newItem)) {
+        const oldV = oldItem[k];
+        const newV = newItem[k];
+        if (
+            typeof newV === "string" &&
+            oldV &&
+            typeof oldV === "object" &&
+            !Array.isArray(oldV) &&
+            oldV._id === newV
+        ) {
+            continue;
+        }
+        result[k] = newV;
+    }
+    return result;
+};
 
-  const remove = async (id) => {
-    await api.delete(`${endpoint}/${id}`);
-    setItems((prev) => prev.filter((item) => item._id !== id));
-  };
+const useResource = (endpoint) => {
+    const key = cacheKey(endpoint);
+    const [items, setItemsState] = useState(() => readCache(key) || []);
+    const [loading, setLoading] = useState(() => readCache(key) === null);
+    const mounted = useRef(true);
 
-  return { items, setItems, loading, load, create, update, remove };
-}
+    const setItems = useCallback(
+        (next) => {
+            setItemsState((prev) => {
+                const value = typeof next === "function" ? next(prev) : next;
+                writeCache(key, value);
+                return value;
+            });
+        }, [key]
+    );
+
+    const reload = useCallback(async() => {
+        try {
+            const { data } = await api.get(endpoint);
+            if (mounted.current) {
+                setItemsState(data);
+                writeCache(key, data);
+            }
+            return data;
+        } catch {
+            return null;
+        } finally {
+            if (mounted.current) setLoading(false);
+        }
+    }, [endpoint, key]);
+
+    useEffect(() => {
+        mounted.current = true;
+        reload();
+        return () => {
+            mounted.current = false;
+        };
+    }, [reload]);
+
+    const create = async(payload) => {
+        const { data } = await api.post(endpoint, payload);
+        setItems((prev) => [data, ...prev]);
+        reload(); // recupere la version complete (cours lie, ordre du serveur...)
+        return data;
+    };
+
+    const update = async(id, payload) => {
+        const { data } = await api.put(`${endpoint}/${id}`, payload);
+        setItems((prev) =>
+            prev.map((i) => (i._id === id ? mergeKeepPopulated(i, data) : i))
+        );
+        reload();
+        return data;
+    };
+
+    return { items, setItems, create, update, loading, reload };
+};
+
+export default useResource;

@@ -11,12 +11,15 @@ import api from "../services/api";
 import { useToast } from "../context/ToastContext";
 import { useAuth } from "../context/AuthContext";
 import Icon from "../components/Icon";
+import Sparkline from "../components/Sparkline";
+import { CardSkeletons } from "../components/Skeletons";
+import { hasNewContent, syncSeen } from "../utils/newContent";
 
 const emptyForm = { title: "", code: "", description: "", color: "#6c63ff", progress: 0 };
 const ITEMS_PER_PAGE = 9; // 3 colonnes x 3 lignes
 
 const Courses = () => {
-  const { items: courses, setItems: setCourses, create, update } = useResource("/courses");
+  const { items: courses, setItems: setCourses, create, update, loading } = useResource("/courses");
   const { showToast } = useToast();
   const { user } = useAuth();
   const isReadOnly = user?.role === "viewonly" || (user?.role === "user" && !!user?.sponsor);
@@ -27,7 +30,23 @@ const Courses = () => {
   const [progressValue, setProgressValue] = useState(0);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [history, setHistory] = useState({}); // evolution de la progression par cours
+  const [allNotes, setAllNotes] = useState([]);
+  const [seen, setSeen] = useState(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    api.get("/courses/progress-history").then(({ data }) => setHistory(data)).catch(() => {});
+    api.get("/notes").then(({ data }) => { setAllNotes(data); setSeen(syncSeen(data)); }).catch(() => {});
+  }, []);
+
+  // Courbe d'evolution : l'historique + la valeur actuelle si elle est plus recente.
+  const seriesFor = (course) => {
+    const h = history[course._id] || [];
+    return h.length && h[h.length - 1] !== course.progress ? [...h, course.progress] : h;
+  };
+  const courseHasNew = (course) =>
+    allNotes.some((n) => (n.course?._id || n.course) === course._id && hasNewContent(n, seen));
 
   const deleteWithUndo = useUndoDelete({
     setItems: setCourses,
@@ -116,7 +135,10 @@ const Courses = () => {
                   onClick={() => navigate(`/courses/${course._id}`)}
                 >
                   <div className="course-card-top">
-                    <span className="course-code">{course.code || "COURS"}</span>
+                    <span className="d-flex align-items-center gap-2 flex-wrap">
+                      <span className="course-code">{course.code || "COURS"}</span>
+                      {courseHasNew(course) && <span className="badge-new">Nouveau contenu</span>}
+                    </span>
                     {!isReadOnly && (
                       <div className="d-flex align-items-center gap-1" onClick={(e) => e.stopPropagation()}>
                         <button
@@ -163,7 +185,10 @@ const Courses = () => {
                           <div className="progress-fill" style={{ width: `${course.progress}%` }}></div>
                         </div>
                         <div className="d-flex justify-content-between align-items-center mt-1">
-                          <small className="text-muted">Progression</small>
+                          <span className="d-flex align-items-center gap-2">
+                            <small className="text-muted">Progression</small>
+                            {seriesFor(course).length >= 2 && <Sparkline values={seriesFor(course)} width={60} height={20} color={course.color || "#6c63ff"} max={100} />}
+                          </span>
                           <div className="d-flex align-items-center gap-2">
                             <small className="fw-bold">{course.progress}%</small>
                             <button
@@ -187,10 +212,11 @@ const Courses = () => {
               </motion.div>
             ))}
           </AnimatePresence>
-          {filteredCourses.length === 0 && courses.length > 0 && (
+          {!loading && filteredCourses.length === 0 && courses.length > 0 && (
             <p className="text-muted">Aucun cours ne correspond a "{search}".</p>
           )}
-          {courses.length === 0 && <p className="text-muted">Aucun cours pour le moment. Ajoutez-en un !</p>}
+          {loading && courses.length === 0 && <CardSkeletons count={6} />}
+          {!loading && courses.length === 0 && <p className="text-muted">Aucun cours pour le moment. Ajoutez-en un !</p>}
         </div>
 
         <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
