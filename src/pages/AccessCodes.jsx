@@ -28,7 +28,7 @@ const AccessCodes = () => {
   const [loadingCodes, setLoadingCodes] = useState(canGenerate);
 
   // Choix de ce que le code donne a voir
-  const [options, setOptions] = useState({ courses: [], notes: [], assignments: [] });
+  const [options, setOptions] = useState({ courses: [], notes: [], assignments: [], sessions: [] });
   const [mode, setMode] = useState("all"); // "all" = tout ce qui est partage, "custom" = choix precis
   const [selCourses, setSelCourses] = useState([]);
   const [selNotes, setSelNotes] = useState([]);
@@ -44,6 +44,8 @@ const AccessCodes = () => {
   const [selUnsharedCourses, setSelUnsharedCourses] = useState([]); // cours visibles meme non partages
   const [selUnsharedAssignments, setSelUnsharedAssignments] = useState([]); // projets/examens visibles meme non partages
   const [openAssignments, setOpenAssignments] = useState(false); // detail des projets (mode "tout")
+  const [selUnsharedSessions, setSelUnsharedSessions] = useState([]); // seances visibles meme non partagees
+  const [openSessions, setOpenSessions] = useState(false); // detail des seances (mode "tout")
   const [editingCodeId, setEditingCodeId] = useState(null);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -96,6 +98,36 @@ const AccessCodes = () => {
     setAllAssignments(unsharedAssignmentIds.length > 0 && unsharedAssignmentIds.every((x) => next.includes(x)));
   };
 
+  // --- Mode "tout" : emploi du temps, seance par seance ---
+  const unsharedSessionIds = (options.sessions || [])
+    .filter((x) => !x.sharedWithViewers)
+    .map((x) => String(x._id));
+
+  const toggleAllSchedule = (checked) => {
+    setAllSchedule(checked);
+    setSelUnsharedSessions(checked ? unsharedSessionIds : []);
+  };
+
+  const toggleOneSession = (id) => {
+    const current = allSchedule ? unsharedSessionIds : selUnsharedSessions;
+    const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
+    setSelUnsharedSessions(next);
+    setAllSchedule(unsharedSessionIds.length > 0 && unsharedSessionIds.every((x) => next.includes(x)));
+  };
+
+  const formatSlot = (v) => {
+    if (v === undefined || v === null || v === "") return "";
+    if (typeof v === "string" && /^\d{4}-\d{2}-\d{2}T/.test(v)) {
+      const d = new Date(v);
+      if (!isNaN(d)) return d.toLocaleString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+    }
+    return String(v);
+  };
+  const sessionLabel = (x) => {
+    const when = [formatSlot(x.day), [formatSlot(x.start), formatSlot(x.end)].filter(Boolean).join(" - ")].filter(Boolean).join(" · ");
+    return `${x.title}${x.course?.title && x.course.title !== x.title ? ` · ${x.course.title}` : ""}${when ? ` (${when})` : ""}`;
+  };
+
   const notesByCourse = options.notes.reduce((acc, n) => {
     const key = n.course?._id || n.course;
     (acc[key] = acc[key] || []).push(n);
@@ -123,6 +155,7 @@ const AccessCodes = () => {
     setIncludeUnshared(true);
     setSelUnsharedCourses([]);
     setSelUnsharedAssignments([]);
+    setSelUnsharedSessions([]);
     setExpiresInDays("");
     setEditingCodeId(null);
     setFormError("");
@@ -143,6 +176,7 @@ const AccessCodes = () => {
     setIncludeUnshared(!!codeDoc.includeUnshared);
     setSelUnsharedCourses((codeDoc.unsharedCourses || []).map(String));
     setSelUnsharedAssignments((codeDoc.unsharedAssignments || []).map(String));
+    setSelUnsharedSessions((codeDoc.unsharedSessions || []).map(String));
     setFormError("");
     window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
   };
@@ -167,6 +201,7 @@ const AccessCodes = () => {
       includeUnshared,
       unsharedCourseIds: selUnsharedCourses,
       unsharedAssignmentIds: selUnsharedAssignments,
+      unsharedSessionIds: selUnsharedSessions,
     };
     setSaving(true);
     try {
@@ -443,13 +478,58 @@ const AccessCodes = () => {
                       </div>
                     );
                   })()}
-                  <label className="scope-row">
-                    <input type="checkbox" className="form-check-input" checked={allSchedule} onChange={(e) => setAllSchedule(e.target.checked)} />
-                    <span>
-                      <strong>Emploi du temps</strong>
-                      <small className="text-muted d-block">Toutes vos séances sont visibles, même celles dont l'œil est barré. Décochez pour ne montrer que celles marquées comme partagées.</small>
-                    </span>
-                  </label>
+                  {(() => {
+                    const list = options.sessions || [];
+                    const effective = allSchedule ? unsharedSessionIds : selUnsharedSessions;
+                    const picked = unsharedSessionIds.filter((id) => effective.includes(id)).length;
+                    return (
+                      <div>
+                        <label className="scope-row">
+                          <input
+                            type="checkbox"
+                            className="form-check-input"
+                            checked={allSchedule}
+                            ref={(el) => { if (el) el.indeterminate = !allSchedule && picked > 0; }}
+                            onChange={(e) => toggleAllSchedule(e.target.checked)}
+                          />
+                          <span>
+                            <strong>Emploi du temps</strong>
+                            <small className="text-muted d-block">Toutes vos séances sont visibles, même celles dont l'œil est barré. Décochez pour ne montrer que celles marquées comme partagées, ou choisissez-les une par une ci-dessous.</small>
+                          </span>
+                        </label>
+                        {list.length > 0 && (
+                          <div className="ms-4">
+                            <button type="button" className="scope-toggle" onClick={() => setOpenSessions((v) => !v)} aria-expanded={openSessions}>
+                              {openSessions ? "Replier" : `Afficher les ${list.length} séance${list.length > 1 ? "s" : ""}`}
+                              {unsharedSessionIds.length > 0 && ` (${picked}/${unsharedSessionIds.length} non partagées visibles)`}
+                            </button>
+                            {openSessions && (
+                              <div className="scope-items">
+                                {list.map((x) => {
+                                  const id = String(x._id);
+                                  const isShared = !!x.sharedWithViewers;
+                                  return (
+                                    <label className="scope-row" key={id}>
+                                      <input
+                                        type="checkbox"
+                                        className="form-check-input"
+                                        checked={isShared || effective.includes(id)}
+                                        disabled={isShared}
+                                        onChange={() => toggleOneSession(id)}
+                                      />
+                                      <span className="scope-kind">Séance</span>
+                                      <span className="scope-item-name">{sessionLabel(x)}</span>
+                                      <span className="scope-badge">{isShared ? "partagée" : "non partagée"}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <small className="text-muted d-block mt-1">
                     Pour choisir cours par cours et projet par projet, utilisez « Seulement ce que je choisis ».
                   </small>
@@ -702,7 +782,11 @@ const AccessCodes = () => {
                             : (c.unsharedAssignments || []).length > 0
                               ? ` · ${c.unsharedAssignments.length} projet${c.unsharedAssignments.length > 1 ? "s" : ""}/examen${c.unsharedAssignments.length > 1 ? "s" : ""} non partagé${c.unsharedAssignments.length > 1 ? "s" : ""} en plus`
                               : ""}
-                          {c.allSchedule ? " · tout l'emploi du temps" : ""}
+                          {c.allSchedule
+                            ? " · tout l'emploi du temps"
+                            : (c.unsharedSessions || []).length > 0
+                              ? ` · ${c.unsharedSessions.length} séance${c.unsharedSessions.length > 1 ? "s" : ""} non partagée${c.unsharedSessions.length > 1 ? "s" : ""} en plus`
+                              : ""}
                         </span>
                       )}
                     </div>
