@@ -40,7 +40,9 @@ const AccessCodes = () => {
   const [allSchedule, setAllSchedule] = useState(true); // mode "tout" : tout l'emploi du temps
   const [collapsed, setCollapsed] = useState([]); // notes dont le detail est replie (tout est deplie par defaut)
   const [includeContent, setIncludeContent] = useState(false); // toutes les notes/fichiers des cours coches
-  const [includeUnshared, setIncludeUnshared] = useState(true); // meme ce qui n'est pas partage
+  const [includeUnshared, setIncludeUnshared] = useState(true); // meme ce qui n'est pas partage (raccourci "tout")
+  const [selUnsharedCourses, setSelUnsharedCourses] = useState([]); // cours visibles meme non partages
+  const [selUnsharedAssignments, setSelUnsharedAssignments] = useState([]); // projets/examens visibles meme non partages
   const [editingCodeId, setEditingCodeId] = useState(null);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -99,6 +101,8 @@ const AccessCodes = () => {
     setAllSchedule(true);
     setIncludeContent(false);
     setIncludeUnshared(true);
+    setSelUnsharedCourses([]);
+    setSelUnsharedAssignments([]);
     setExpiresInDays("");
     setEditingCodeId(null);
     setFormError("");
@@ -117,6 +121,8 @@ const AccessCodes = () => {
     setAllSchedule(!!codeDoc.allSchedule);
     setIncludeContent(!!codeDoc.includeCourseContent);
     setIncludeUnshared(!!codeDoc.includeUnshared);
+    setSelUnsharedCourses((codeDoc.unsharedCourses || []).map(String));
+    setSelUnsharedAssignments((codeDoc.unsharedAssignments || []).map(String));
     setFormError("");
     window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
   };
@@ -139,6 +145,8 @@ const AccessCodes = () => {
       allSchedule,
       includeCourseContent: includeContent,
       includeUnshared,
+      unsharedCourseIds: selUnsharedCourses,
+      unsharedAssignmentIds: selUnsharedAssignments,
     };
     setSaving(true);
     try {
@@ -377,6 +385,9 @@ const AccessCodes = () => {
                       <small className="text-muted d-block">Toutes vos séances sont visibles, même celles dont l'œil est barré. Décochez pour ne montrer que celles marquées comme partagées.</small>
                     </span>
                   </label>
+                  <small className="text-muted d-block mt-1">
+                    Pour choisir cours par cours et projet par projet, utilisez « Seulement ce que je choisis ».
+                  </small>
                 </div>
               )}
               <label className="scope-mode">
@@ -406,6 +417,17 @@ const AccessCodes = () => {
                           <strong>{course.title}</strong>
                           {!includeUnshared && !course.sharedWithViewers && <span className="scope-badge">cours non partage</span>}
                         </label>
+                        {selCourses.includes(course._id) && !course.sharedWithViewers && !includeUnshared && (
+                          <label className="scope-row ms-4">
+                            <input
+                              type="checkbox"
+                              className="form-check-input"
+                              checked={selUnsharedCourses.includes(String(course._id))}
+                              onChange={() => toggleId(selUnsharedCourses, setSelUnsharedCourses, String(course._id))}
+                            />
+                            <small>Rendre ce cours visible même s'il n'est pas partagé</small>
+                          </label>
+                        )}
                         {courseNotes.length > 0 && (
                           <div className="scope-notes">
                             {courseNotes.map((n) => {
@@ -504,7 +526,8 @@ const AccessCodes = () => {
                     </div>
                     {(options.assignments || []).length === 0 && <p className="text-muted small mb-0">Aucun projet tutoré ni examen.</p>}
                     {(options.assignments || []).map((a) => (
-                      <label className="scope-row" key={a._id}>
+                      <React.Fragment key={a._id}>
+                      <label className="scope-row">
                         <input
                           type="checkbox"
                           className="form-check-input"
@@ -515,6 +538,18 @@ const AccessCodes = () => {
                         <span className="scope-item-name">{a.title}{a.course?.title ? ` · ${a.course.title}` : ""}</span>
                         {!includeUnshared && !a.sharedWithViewers && <span className="scope-badge">non partagé</span>}
                       </label>
+                      {selAssignments.includes(String(a._id)) && !a.sharedWithViewers && !includeUnshared && (
+                        <label className="scope-row ms-4">
+                          <input
+                            type="checkbox"
+                            className="form-check-input"
+                            checked={selUnsharedAssignments.includes(String(a._id))}
+                            onChange={() => toggleId(selUnsharedAssignments, setSelUnsharedAssignments, String(a._id))}
+                          />
+                          <small>Rendre ce projet/examen visible même s'il n'est pas partagé</small>
+                        </label>
+                      )}
+                    </React.Fragment>
                     ))}
                   </div>
 

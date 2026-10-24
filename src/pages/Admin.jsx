@@ -68,8 +68,11 @@ const Admin = () => {
     const ok = await confirm(`Revoquer le code "${codeDoc.code}" ?`);
     if (!ok) return;
     await api.delete(`/access-codes/${codeDoc._id}`);
-    setCodes((prev) => prev.map((c) => (c._id === codeDoc._id ? { ...c, revoked: true } : c)));
-    showToast("Code revoque", { type: "info" });
+    // Le backend supprime definitivement le code : on le retire de la liste
+    // et on recharge les utilisateurs (leurs sponsors ont ete detaches).
+    setCodes((prev) => prev.filter((c) => c._id !== codeDoc._id));
+    api.get("/users").then(({ data }) => setUsers(data));
+    showToast("Code supprime", { type: "info" });
   };
 
   const resolveUpgrade = async (request, action) => {
@@ -132,7 +135,14 @@ const Admin = () => {
                         <option value="admin">Administrateur</option>
                       </select>
                     </td>
-                    <td className="text-muted small">{u.sponsor ? u.sponsor.name : "—"}</td>
+                    <td className="text-muted small">
+                      {u.sponsor ? (
+                        <>
+                          {u.sponsor.name}
+                          {u.sponsorCode?.code && <code className="ms-1">{u.sponsorCode.code}</code>}
+                        </>
+                      ) : "—"}
+                    </td>
                     <td className="text-muted small">{new Date(u.createdAt).toLocaleDateString("fr-FR")}</td>
                     <td>
                       {/* Pas de suppression pour un compte administrateur (le serveur la refuse aussi) */}
