@@ -12,6 +12,7 @@ import Icon from "../components/Icon";
 import { DAYS, MONTHS, addDays, isoKey, isSameDay, minToTime, startOfDay, startOfWeek, timeToMin, toKey, weekdayIndex } from "../utils/dateHelpers";
 import { computeDrop, hourRange, layoutDay } from "../utils/calendarLayout";
 import { apiError } from "../utils/http";
+import { occursOn } from "../utils/scheduleOccurrence";
 
 const HOUR_PX = 56;
 const PALETTE = ["#6c63ff", "#0ea5e9", "#22c55e", "#f59e0b", "#ef4444", "#ec4899", "#14b8a6", "#8b5cf6"];
@@ -29,20 +30,6 @@ const dateKey = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getD
 const parseKey = (k) => { const [y, m, d] = k.split("-").map(Number); return new Date(y, m - 1, d); };
 const fmtDate = (k) => parseKey(k).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
 
-// La séance a-t-elle lieu à cette date ? (les anciennes séances sans "repeat" sont hebdomadaires)
-const occursOn = (item, date) => {
-  const key = dateKey(date);
-  const repeat = item.repeat || "weekly";
-  if (repeat === "none") return item.date === key;
-  if (item.day !== DAYS[weekdayIndex(date)]) return false;
-  if (item.startDate && key < item.startDate) return false;
-  if (item.endDate && key > item.endDate) return false;
-  if (repeat === "biweekly" && item.startDate) {
-    const weeks = Math.round((startOfWeek(date) - startOfWeek(parseKey(item.startDate))) / (7 * 24 * 3600 * 1000));
-    return weeks % 2 === 0;
-  }
-  return true;
-};
 const repeatLabel = (item) => {
   const repeat = item.repeat || "weekly";
   if (repeat === "none") return "Ponctuelle";

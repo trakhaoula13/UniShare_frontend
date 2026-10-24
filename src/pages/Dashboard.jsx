@@ -14,6 +14,7 @@ import { useToast } from "../context/ToastContext";
 import { useConfirm } from "../context/ConfirmContext";
 import { DAYS, addDays, daysUntil, dueLabel, dueTone, formatShort, startOfDay, timeToMin, toKey, weekdayIndex } from "../utils/dateHelpers";
 import { hasNewContent, syncSeen } from "../utils/newContent";
+import { occursOn } from "../utils/scheduleOccurrence";
 import { container, item as fadeItem } from "../utils/motion";
 
 const emptyLinkForm = { label: "", url: "", icon: "link-45deg" };
@@ -66,8 +67,8 @@ const Dashboard = () => {
   const courseColor = (subject) => courses.find((c) => c.title === subject)?.color || "#6c63ff";
 
   const sessionsToday = useMemo(
-    () => schedule.filter((s) => s.day === todayName).sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    [schedule, todayName]
+    () => schedule.filter((s) => occursOn(s, now)).sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [schedule, todayName] // eslint-disable-line react-hooks/exhaustive-deps
   );
   const sessionState = (s) => {
     const start = timeToMin(s.startTime);

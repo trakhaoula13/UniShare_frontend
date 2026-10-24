@@ -28,12 +28,16 @@ const AccessCodes = () => {
   const [loadingCodes, setLoadingCodes] = useState(canGenerate);
 
   // Choix de ce que le code donne a voir
-  const [options, setOptions] = useState({ courses: [], notes: [] });
+  const [options, setOptions] = useState({ courses: [], notes: [], assignments: [] });
   const [mode, setMode] = useState("all"); // "all" = tout ce qui est partage, "custom" = choix precis
   const [selCourses, setSelCourses] = useState([]);
   const [selNotes, setSelNotes] = useState([]);
   const [selFiles, setSelFiles] = useState([]); // adresses (fileUrl) des fichiers choisis
   const [selEntries, setSelEntries] = useState([]); // identifiants des notes internes choisies
+  const [selAssignments, setSelAssignments] = useState([]); // projets tutores / examens choisis
+  const [includeSchedule, setIncludeSchedule] = useState(false); // emploi du temps
+  const [allAssignments, setAllAssignments] = useState(true); // mode "tout" : tous les projets/examens
+  const [allSchedule, setAllSchedule] = useState(true); // mode "tout" : tout l'emploi du temps
   const [collapsed, setCollapsed] = useState([]); // notes dont le detail est replie (tout est deplie par defaut)
   const [includeContent, setIncludeContent] = useState(false); // toutes les notes/fichiers des cours coches
   const [includeUnshared, setIncludeUnshared] = useState(true); // meme ce qui n'est pas partage
@@ -89,6 +93,10 @@ const AccessCodes = () => {
     setSelFiles([]);
     setSelEntries([]);
     setCollapsed([]);
+    setSelAssignments([]);
+    setIncludeSchedule(false);
+    setAllAssignments(true);
+    setAllSchedule(true);
     setIncludeContent(false);
     setIncludeUnshared(true);
     setExpiresInDays("");
@@ -103,6 +111,10 @@ const AccessCodes = () => {
     setSelNotes((codeDoc.notes || []).map((n) => n._id || n));
     setSelFiles(codeDoc.files || []);
     setSelEntries((codeDoc.entries || []).map(String));
+    setSelAssignments((codeDoc.assignments || []).map(String));
+    setIncludeSchedule(!!codeDoc.includeSchedule);
+    setAllAssignments(!!codeDoc.allAssignments);
+    setAllSchedule(!!codeDoc.allSchedule);
     setIncludeContent(!!codeDoc.includeCourseContent);
     setIncludeUnshared(!!codeDoc.includeUnshared);
     setFormError("");
@@ -111,8 +123,8 @@ const AccessCodes = () => {
 
   const submitCode = async () => {
     setFormError("");
-    if (mode === "custom" && !selCourses.length && !selNotes.length && !selFiles.length && !selEntries.length) {
-      setFormError("Cochez au moins un cours, une note, un fichier ou une note interne.");
+    if (mode === "custom" && !selCourses.length && !selNotes.length && !selFiles.length && !selEntries.length && !selAssignments.length && !includeSchedule) {
+      setFormError("Cochez au moins un cours, une note, un fichier, une note interne, un projet/examen ou l'emploi du temps.");
       return;
     }
     const payload = {
@@ -121,6 +133,10 @@ const AccessCodes = () => {
       noteIds: selNotes,
       fileUrls: selFiles,
       entryIds: selEntries,
+      assignmentIds: selAssignments,
+      includeSchedule,
+      allAssignments,
+      allSchedule,
       includeCourseContent: includeContent,
       includeUnshared,
     };
@@ -149,12 +165,23 @@ const AccessCodes = () => {
     showToast("Code copie dans le presse-papiers", { type: "info" });
   };
 
-  const revokeCode = async (codeDoc) => {
-    const ok = await confirm(`Revoquer le code "${codeDoc.code}" ? Il ne pourra plus etre utilise.`);
+  // Suppression definitive : le code disparait de la liste et ses lecteurs sont detaches.
+  const deleteCode = async (codeDoc) => {
+    const readers = (codeDoc.activeUsers || []).length;
+    const ok = await confirm(
+      readers > 0
+        ? `Supprimer le code "${codeDoc.code}" ? ${readers} lecteur${readers > 1 ? "s" : ""} ne pourr${readers > 1 ? "ont" : "a"} plus consulter vos elements avec ce code.`
+        : `Supprimer le code "${codeDoc.code}" ?`
+    );
     if (!ok) return;
-    await api.delete(`/access-codes/${codeDoc._id}`);
-    setCodes((prev) => prev.map((c) => (c._id === codeDoc._id ? { ...c, revoked: true } : c)));
-    showToast("Code revoque", { type: "info" });
+    try {
+      await api.delete(`/access-codes/${codeDoc._id}`);
+      setCodes((prev) => prev.filter((c) => c._id !== codeDoc._id));
+      if (editingCodeId === codeDoc._id) resetForm();
+      showToast("Code supprime", { type: "info" });
+    } catch (err) {
+      showToast(err.response?.data?.message || "Suppression impossible", { type: "error" });
+    }
   };
 
   const handleRedeem = async (e) => {
@@ -331,22 +358,40 @@ const AccessCodes = () => {
                 <input type="radio" className="form-check-input" checked={mode === "all"} onChange={() => setMode("all")} />
                 <span>
                   <strong>Tout ce que j'ai partage</strong>
-                  <small className="text-muted d-block">Cours, devoirs/examens, notes et emploi du temps marques comme partages.</small>
+                  <small className="text-muted d-block">Cours et notes marques comme partages, plus les options ci-dessous.</small>
                 </span>
               </label>
+              {mode === "all" && (
+                <div className="scope-options">
+                  <label className="scope-row">
+                    <input type="checkbox" className="form-check-input" checked={allAssignments} onChange={(e) => setAllAssignments(e.target.checked)} />
+                    <span>
+                      <strong>Projets tutorés &amp; examens</strong>
+                      <small className="text-muted d-block">Tous vos projets et examens sont visibles, même ceux dont l'œil est barré. Décochez pour ne montrer que ceux marqués comme partagés.</small>
+                    </span>
+                  </label>
+                  <label className="scope-row">
+                    <input type="checkbox" className="form-check-input" checked={allSchedule} onChange={(e) => setAllSchedule(e.target.checked)} />
+                    <span>
+                      <strong>Emploi du temps</strong>
+                      <small className="text-muted d-block">Toutes vos séances sont visibles, même celles dont l'œil est barré. Décochez pour ne montrer que celles marquées comme partagées.</small>
+                    </span>
+                  </label>
+                </div>
+              )}
               <label className="scope-mode">
                 <input type="radio" className="form-check-input" checked={mode === "custom"} onChange={() => setMode("custom")} />
                 <span>
                   <strong>Seulement ce que je choisis</strong>
-                  <small className="text-muted d-block">Les cours, notes, fichiers et notes internes cochés ci-dessous. Les devoirs et l'emploi du temps ne sont pas visibles.</small>
+                  <small className="text-muted d-block">Les cours, notes, fichiers, notes internes, projets/examens et l'emploi du temps cochés ci-dessous.</small>
                 </span>
               </label>
 
               {mode === "custom" && (
                 <div className="scope-picker">
-                  {options.notes.length > 0 && options.notes.every((n) => !Array.isArray(n.files)) && (
+                  {((options.notes.length > 0 && options.notes.every((n) => !Array.isArray(n.files))) || (options.courses.length > 0 && !Array.isArray(options.assignments))) && (
                     <div className="alert alert-warning py-2 small">
-                      Le serveur n'est pas à jour : la liste des fichiers et des notes internes est indisponible.
+                      Le serveur n'est pas à jour : certaines listes (fichiers, notes internes, projets/examens) sont indisponibles.
                       Remplacez <code>accessCodeController.js</code> sur le backend, puis redéployez.
                     </div>
                   )}
@@ -441,6 +486,48 @@ const AccessCodes = () => {
                       </div>
                     );
                   })}
+                  <div className="scope-section">
+                    <div className="d-flex justify-content-between align-items-center">
+                      <div className="scope-section-title">Projets tutorés & examens</div>
+                      {(options.assignments || []).length > 0 && (
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm p-0"
+                          onClick={() => {
+                            const ids = options.assignments.map((a) => String(a._id));
+                            setSelAssignments(ids.every((id) => selAssignments.includes(id)) ? [] : ids);
+                          }}
+                        >
+                          Cocher / décocher tous
+                        </button>
+                      )}
+                    </div>
+                    {(options.assignments || []).length === 0 && <p className="text-muted small mb-0">Aucun projet tutoré ni examen.</p>}
+                    {(options.assignments || []).map((a) => (
+                      <label className="scope-row" key={a._id}>
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          checked={selAssignments.includes(String(a._id))}
+                          onChange={() => toggleId(selAssignments, setSelAssignments, String(a._id))}
+                        />
+                        <span className={`scope-kind ${a.type === "exam" ? "" : "scope-kind-note"}`}>{a.type === "exam" ? "Examen" : "Projet"}</span>
+                        <span className="scope-item-name">{a.title}{a.course?.title ? ` · ${a.course.title}` : ""}</span>
+                        {!includeUnshared && !a.sharedWithViewers && <span className="scope-badge">non partagé</span>}
+                      </label>
+                    ))}
+                  </div>
+
+                  <div className="scope-section">
+                    <label className="scope-row scope-row-top">
+                      <input type="checkbox" className="form-check-input" checked={includeSchedule} onChange={(e) => setIncludeSchedule(e.target.checked)} />
+                      <span>
+                        <strong>Emploi du temps</strong>
+                        <small className="text-muted d-block">Les séances partagées (toutes les séances si « Aussi ce qui n'est pas partagé » est coché).</small>
+                      </span>
+                    </label>
+                  </div>
+
                   <div className="scope-options">
                     <label className="scope-row">
                       <input type="checkbox" className="form-check-input" checked={includeContent} onChange={(e) => setIncludeContent(e.target.checked)} />
@@ -500,13 +587,19 @@ const AccessCodes = () => {
                             {" · "}
                             {(c.notes || []).length} note{(c.notes || []).length > 1 ? "s" : ""}
                             {(c.files || []).length > 0 ? ` · ${c.files.length} fichier${c.files.length > 1 ? "s" : ""}` : ""}
+                            {(c.assignments || []).length > 0 ? ` · ${c.assignments.length} projet${c.assignments.length > 1 ? "s" : ""}/examen${c.assignments.length > 1 ? "s" : ""}` : ""}
+                            {c.includeSchedule ? " · emploi du temps" : ""}
                             {(c.entries || []).length > 0 ? ` · ${c.entries.length} note${c.entries.length > 1 ? "s" : ""} interne${c.entries.length > 1 ? "s" : ""}` : ""}
                             {c.includeCourseContent ? " + tout le contenu des cours" : ""}
                             {c.includeUnshared ? " · y compris non partage" : ""}
                           </span>
                         </>
                       ) : (
-                        <span className="text-muted">Tout ce qui est partage</span>
+                        <span className="text-muted">
+                          Tout ce qui est partage
+                          {c.allAssignments ? " · tous les projets/examens" : ""}
+                          {c.allSchedule ? " · tout l'emploi du temps" : ""}
+                        </span>
                       )}
                     </div>
                     {c.activeUsers?.length > 0 ? (
@@ -529,9 +622,7 @@ const AccessCodes = () => {
                     {!c.revoked && (
                       <button className="btn-icon" onClick={() => startEdit(c)} aria-label="Modifier l'acces du code" title="Modifier ce que le code donne a voir"><Icon name="pencil" size={14} /></button>
                     )}
-                    {!c.revoked && (
-                      <button className="btn-icon text-danger" onClick={() => revokeCode(c)} aria-label="Revoquer le code"><Icon name="trash" size={14} /></button>
-                    )}
+                    <button className="btn-icon text-danger" onClick={() => deleteCode(c)} aria-label="Supprimer le code" title="Supprimer le code"><Icon name="trash" size={14} /></button>
                   </div>
                 </div>
               ))}

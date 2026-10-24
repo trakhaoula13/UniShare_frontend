@@ -1,83 +1,57 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import api from "../services/api";
 import { useAuth } from "./AuthContext";
+import { computeReminders } from "../utils/reminders";
 
-const NotificationContext = createContext(null);
+const NotificationContext = createContext({ notifications: [], refresh: () => {}, dismiss: () => {}, clearAll: () => {} });
 
-const DAY_NAMES = ["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"];
+const asList = (res) => (Array.isArray(res?.data) ? res.data : []);
+const MAX_DISMISSED = 200;
 
-// Calcule les rappels a afficher a partir des devoirs/examens et de
-// l'emploi du temps deja charges -- aucun etat "lu/non lu" persiste,
-// la liste est simplement recalculee a chaque rafraichissement.
-const computeReminders = (assignments, schedule) => {
-  const now = new Date();
-  const reminders = [];
-
-  assignments.forEach((a) => {
-    if (a.status === "done") return;
-    const due = new Date(a.dueDate);
-    const hoursLeft = (due - now) / 3600000;
-    if (hoursLeft > 0 && hoursLeft <= 24) {
-      reminders.push({
-        id: `assignment-${a._id}`,
-        icon: a.type === "exam" ? "exclamation-triangle-fill" : "clipboard-check",
-        tone: "warning",
-        message: `${a.type === "exam" ? "Examen" : "Projet tutore"} "${a.title}" demain (${due.toLocaleDateString("fr-FR")})`,
-        time: due,
-      });
-    }
-  });
-
-  const todayName = DAY_NAMES[now.getDay()];
-  schedule.forEach((s) => {
-    if (s.day !== todayName || !s.startTime) return;
-    const [h, m] = s.startTime.split(":").map(Number);
-    const sessionDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m);
-    const minutesLeft = (sessionDate - now) / 60000;
-    if (minutesLeft > 0 && minutesLeft <= 60) {
-      reminders.push({
-        id: `schedule-${s._id}`,
-        icon: "calendar-event",
-        tone: "info",
-        message: `Seance "${s.subject}" dans ${Math.round(minutesLeft)} min (${s.startTime}${s.room ? ", salle " + s.room : ""})`,
-        time: sessionDate,
-      });
-    }
-  });
-
-  return reminders.sort((a, b) => a.time - b.time);
+const storageKey = (user) => `unishare:dismissed-reminders:${user?._id || user?.id || "anon"}`;
+const loadDismissed = (user) => {
+  try { return JSON.parse(localStorage.getItem(storageKey(user))) || []; } catch { return []; }
 };
 
 export const NotificationProvider = ({ children }) => {
   const { user } = useAuth();
-  const [notifications, setNotifications] = useState([]);
+  const [all, setAll] = useState([]);
+  const [dismissed, setDismissed] = useState([]);
 
+  // Rappels effacés : mémorisés par utilisateur, ils restent effacés après un rechargement.
+  useEffect(() => { setDismissed(user ? loadDismissed(user) : []); }, [user]);
+
+  const saveDismissed = useCallback((keys) => {
+    const trimmed = keys.slice(-MAX_DISMISSED);
+    setDismissed(trimmed);
+    try { localStorage.setItem(storageKey(user), JSON.stringify(trimmed)); } catch { /* stockage indisponible */ }
+  }, [user]);
+
+  // Aucun état "lu/non lu" côté serveur : la liste est recalculée à chaque rafraîchissement.
   const refresh = useCallback(async () => {
     if (!user) {
-      setNotifications([]);
+      setAll([]);
       return;
     }
-    try {
-      const [assignRes, scheduleRes] = await Promise.all([api.get("/assignments"), api.get("/schedule")]);
-      setNotifications(computeReminders(assignRes.data, scheduleRes.data));
-    } catch {
-      // Les notifications ne doivent jamais faire planter le reste de l'app.
-    }
+    // Chaque source est indépendante : si l'une échoue, les autres s'affichent quand même.
+    const safe = (p) => p.catch(() => ({ data: [] }));
+    const [a, t, s] = await Promise.all([safe(api.get("/assignments")), safe(api.get("/todos")), safe(api.get("/schedule"))]);
+    setAll(computeReminders({ assignments: asList(a), todos: asList(t), schedule: asList(s), now: new Date() }));
   }, [user]);
 
   useEffect(() => {
     refresh();
-    // Rafraichit chaque minute : assez frequent pour un compte a rebours
-    // en minutes, assez espace pour rester leger.
+    // Toutes les minutes (compte à rebours des séances) + à chaque ouverture de la cloche.
     const interval = setInterval(refresh, 60 * 1000);
     return () => clearInterval(interval);
   }, [refresh]);
 
-  return (
-    <NotificationContext.Provider value={{ notifications }}>
-      {children}
-    </NotificationContext.Provider>
-  );
+  const notifications = useMemo(() => all.filter((n) => !dismissed.includes(n.key)), [all, dismissed]);
+
+  const dismiss = useCallback((key) => saveDismissed([...dismissed.filter((k) => k !== key), key]), [dismissed, saveDismissed]);
+  const clearAll = useCallback(() => saveDismissed([...new Set([...dismissed, ...all.map((n) => n.key)])]), [dismissed, all, saveDismissed]);
+
+  return <NotificationContext.Provider value={{ notifications, refresh, dismiss, clearAll }}>{children}</NotificationContext.Provider>;
 };
 
 export const useNotifications = () => useContext(NotificationContext);
