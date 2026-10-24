@@ -43,6 +43,7 @@ const AccessCodes = () => {
   const [includeUnshared, setIncludeUnshared] = useState(true); // meme ce qui n'est pas partage (raccourci "tout")
   const [selUnsharedCourses, setSelUnsharedCourses] = useState([]); // cours visibles meme non partages
   const [selUnsharedAssignments, setSelUnsharedAssignments] = useState([]); // projets/examens visibles meme non partages
+  const [openAssignments, setOpenAssignments] = useState(false); // detail des projets (mode "tout")
   const [editingCodeId, setEditingCodeId] = useState(null);
   const [formError, setFormError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -75,6 +76,25 @@ const AccessCodes = () => {
 
   const toggleId = (list, setList, id) =>
     setList(list.includes(id) ? list.filter((x) => x !== id) : [...list, id]);
+
+  // --- Mode "tout" : la case parent + le detail projet par projet ---
+  // Un projet deja partage est visible de toute facon ; seuls les projets
+  // NON partages (oeil barre) se choisissent un par un.
+  const unsharedAssignmentIds = (options.assignments || [])
+    .filter((a) => !a.sharedWithViewers)
+    .map((a) => String(a._id));
+
+  const toggleAllAssignments = (checked) => {
+    setAllAssignments(checked);
+    setSelUnsharedAssignments(checked ? unsharedAssignmentIds : []);
+  };
+
+  const toggleOneAssignment = (id) => {
+    const current = allAssignments ? unsharedAssignmentIds : selUnsharedAssignments;
+    const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
+    setSelUnsharedAssignments(next);
+    setAllAssignments(unsharedAssignmentIds.length > 0 && unsharedAssignmentIds.every((x) => next.includes(x)));
+  };
 
   const notesByCourse = options.notes.reduce((acc, n) => {
     const key = n.course?._id || n.course;
@@ -371,13 +391,58 @@ const AccessCodes = () => {
               </label>
               {mode === "all" && (
                 <div className="scope-options">
-                  <label className="scope-row">
-                    <input type="checkbox" className="form-check-input" checked={allAssignments} onChange={(e) => setAllAssignments(e.target.checked)} />
-                    <span>
-                      <strong>Projets tutorés &amp; examens</strong>
-                      <small className="text-muted d-block">Tous vos projets et examens sont visibles, même ceux dont l'œil est barré. Décochez pour ne montrer que ceux marqués comme partagés.</small>
-                    </span>
-                  </label>
+                  {(() => {
+                    const list = options.assignments || [];
+                    const effective = allAssignments ? unsharedAssignmentIds : selUnsharedAssignments;
+                    const picked = unsharedAssignmentIds.filter((id) => effective.includes(id)).length;
+                    return (
+                      <div>
+                        <label className="scope-row">
+                          <input
+                            type="checkbox"
+                            className="form-check-input"
+                            checked={allAssignments}
+                            ref={(el) => { if (el) el.indeterminate = !allAssignments && picked > 0; }}
+                            onChange={(e) => toggleAllAssignments(e.target.checked)}
+                          />
+                          <span>
+                            <strong>Projets tutorés &amp; examens</strong>
+                            <small className="text-muted d-block">Tous vos projets et examens sont visibles, même ceux dont l'œil est barré. Décochez pour ne montrer que ceux marqués comme partagés, ou choisissez-les un par un ci-dessous.</small>
+                          </span>
+                        </label>
+                        {list.length > 0 && (
+                          <div className="ms-4">
+                            <button type="button" className="scope-toggle" onClick={() => setOpenAssignments((v) => !v)} aria-expanded={openAssignments}>
+                              {openAssignments ? "Replier" : `Afficher les ${list.length} projet${list.length > 1 ? "s" : ""}/examen${list.length > 1 ? "s" : ""}`}
+                              {unsharedAssignmentIds.length > 0 && ` (${picked}/${unsharedAssignmentIds.length} non partagés visibles)`}
+                            </button>
+                            {openAssignments && (
+                              <div className="scope-items">
+                                {list.map((a) => {
+                                  const id = String(a._id);
+                                  const isShared = !!a.sharedWithViewers;
+                                  return (
+                                    <label className="scope-row" key={id}>
+                                      <input
+                                        type="checkbox"
+                                        className="form-check-input"
+                                        checked={isShared || effective.includes(id)}
+                                        disabled={isShared}
+                                        onChange={() => toggleOneAssignment(id)}
+                                      />
+                                      <span className={`scope-kind ${a.type === "exam" ? "" : "scope-kind-note"}`}>{a.type === "exam" ? "Examen" : "Projet"}</span>
+                                      <span className="scope-item-name">{a.title}{a.course?.title ? ` · ${a.course.title}` : ""}</span>
+                                      <span className="scope-badge">{isShared ? "partagé" : "non partagé"}</span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   <label className="scope-row">
                     <input type="checkbox" className="form-check-input" checked={allSchedule} onChange={(e) => setAllSchedule(e.target.checked)} />
                     <span>
@@ -632,7 +697,11 @@ const AccessCodes = () => {
                       ) : (
                         <span className="text-muted">
                           Tout ce qui est partage
-                          {c.allAssignments ? " · tous les projets/examens" : ""}
+                          {c.allAssignments
+                            ? " · tous les projets/examens"
+                            : (c.unsharedAssignments || []).length > 0
+                              ? ` · ${c.unsharedAssignments.length} projet${c.unsharedAssignments.length > 1 ? "s" : ""}/examen${c.unsharedAssignments.length > 1 ? "s" : ""} non partagé${c.unsharedAssignments.length > 1 ? "s" : ""} en plus`
+                              : ""}
                           {c.allSchedule ? " · tout l'emploi du temps" : ""}
                         </span>
                       )}
