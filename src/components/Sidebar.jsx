@@ -9,7 +9,7 @@ const links = [
   { to: "/dashboard", icon: "speedometer2", label: "Tableau de bord", denyRoles: ["viewonly"] },
   { to: "/courses", icon: "book", label: "Cours" },
   { to: "/assignments", icon: "clipboard-check", label: "Projets Tutorés & Examens" },
-  { to: "/notes", icon: "journal-text", label: "Notes" },
+  //{ to: "/notes", icon: "journal-text", label: "Notes" },
   { to: "/research", icon: "search", label: "Recherche", denyRoles: ["viewonly"] },
   { to: "/schedule", icon: "calendar3", label: "Emploi du temps" },
   { to: "/todos", icon: "check2-square", label: "To-Do List", denyRoles: ["viewonly"] },
