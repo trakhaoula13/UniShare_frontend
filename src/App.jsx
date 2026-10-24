@@ -19,7 +19,7 @@ const loaders = {
   Courses: () => import("./pages/Courses"),
   CourseDetail: () => import("./pages/CourseDetail"),
   Assignments: () => import("./pages/Assignments"),
-  Notes: () => import("./pages/Notes"),
+  // Notes: () => import("./pages/Notes"),
   NoteDetail: () => import("./pages/NoteDetail"),
   Research: () => import("./pages/Research"),
   ResearchDetail: () => import("./pages/ResearchDetail"),
@@ -67,12 +67,11 @@ function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password/:token" element={<ResetPasswordConfirm />} />
-
+            <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
             <Route path="/dashboard" element={<ProtectedRoute denyRoles={["viewonly"]}><Dashboard /></ProtectedRoute>} />
             <Route path="/courses" element={<ProtectedRoute><Courses /></ProtectedRoute>} />
             <Route path="/courses/:id" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
             <Route path="/assignments" element={<ProtectedRoute><Assignments /></ProtectedRoute>} />
-            <Route path="/notes" element={<ProtectedRoute><Notes /></ProtectedRoute>} />
             <Route path="/notes/:id" element={<ProtectedRoute><NoteDetail /></ProtectedRoute>} />
             <Route path="/research" element={<ProtectedRoute denyRoles={["viewonly"]}><Research /></ProtectedRoute>} />
             <Route path="/research/:id" element={<ProtectedRoute denyRoles={["viewonly"]}><ResearchDetail /></ProtectedRoute>} />
